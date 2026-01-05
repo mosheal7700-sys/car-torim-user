@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<script>
+// --- הגדרה גלובלית: פונקציה למסך מלא ---
+window.toggleFullScreen = function() {
+  var doc = window.document;
+  var docEl = doc.documentElement;
+  
+  var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+  var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+  var isFullScreen = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+  
+  if (!isFullScreen) {
+    if (requestFullScreen) {
+      requestFullScreen.call(docEl).catch(err => console.log("Error expanding:", err));
+    } else {
+      alert("מכשיר זה אינו תומך בכפתור הרחבה. נסה דרך תפריט הדפדפן.");
+    }
+  } else {
+    if (cancelFullScreen) {
+      cancelFullScreen.call(doc);
+    }
+  }
+};
+
+// --- משתנים גלובליים ---
+
+let deferredPrompt;
+const installBtn = document.getElementById('installUserBtn');
+
+// בדיקה האם המכשיר הוא אייפון (כי באייפון האירוע האוטומטי לא קיים, וחייבים להציג כפתור להסבר)
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// --- לוגיקה להצגת הכפתור ---
+
+// 1. אם זה אייפון ועדיין לא התקנו - נציג את הכפתור בכל מקרה (בשביל ההוראות)
+if (isIOS && !isStandalone) {
+  if (installBtn) installBtn.style.display = 'flex'; // או inline-block לפי העיצוב שלך
+}
+
+// 2. באנדרואיד/מחשב: נחכה שהדפדפן יגיד שיש אפשרות להתקין
+window.addEventListener('beforeinstallprompt', (e) => {
+  // מונע את הקפצת ההודעה האוטומטית המכוערת של הדפדפן
+  e.preventDefault();
+  deferredPrompt = e;
+  console.log("Install prompt ready");
+  
+  // רק עכשיו - כשאנחנו יודעים שאפשר להתקין - נציג את הכפתור!
+  if (installBtn) installBtn.style.display = 'flex';
+});
+
+// 3. העלמת הכפתור לאחר התקנה מוצלחת
+window.addEventListener('appinstalled', () => {
+  console.log('App installed successfully');
+  if (installBtn) installBtn.style.display = 'none';
+  deferredPrompt = null;
+});
+
+// --- הפונקציה בלחיצה ---
+window.installPWA = async function() {
+  // התקנה אוטומטית (אנדרואיד)
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log('User choice:', outcome);
+    
+    // אם המשתמש הסכים - נעלים מיד
+    if (outcome === 'accepted') {
+      if (installBtn) installBtn.style.display = 'none';
+      deferredPrompt = null;
+    }
+  }
+  // הוראות ידניות (אייפון או כשאין אירוע)
+  else {
+    const msg = isIOS
+    ? "באייפון:\nלחץ על כפתור השיתוף (למטה באמצע) \nובחר 'הוסף למסך הבית' (Add to Home Screen)."
+    : "האפליקציה כנראה כבר מותקנת, או שיש להתקין דרך תפריט הדפדפן (3 נקודות > הוסף למסך הבית).";
+    alert(msg);
+  }
+};
+
+// --- שאר הפונקציות שלך (מסך מלא וכו') ---
+window.toggleFullScreen = function() {
+  var doc = window.document;
+  var docEl = doc.documentElement;
+  var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+  var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+  var isFullScreen = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+  
+  if (!isFullScreen) {
+    if (requestFullScreen) requestFullScreen.call(docEl);
+  } else {
+    if (cancelFullScreen) cancelFullScreen.call(doc);
+  }
+};
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(console.error);
+}
+</script>
+
+<head>
+<meta charset="UTF-8">
+<title>הזמנת תורים</title>
+
+<!-- ******ליצירת קישור עם תמונה בווצאפ, להכניס קישורים אמיתיים ***-->
+<meta property="og:title" content="זימון תורים">
+<!--**** תיאור שיופיע בלינק החלפה ****-->
+<meta property="og:description" content="הזמן תור">
+<meta property="og:type" content="website">
+<!--******************************************** החלפה ***************************************-->
+<meta property="og:url" content="https://my-torim-app.netlify.app/" />
+<meta property="og:image" content="https://my-torim-app.netlify.app/icon2.png" />
+<!-- ******ליצירת קישור עם תמונה בווצאפ, להכניס קישורים אמיתיים ***-->
+<!--******************************************** החלפה ***************************************-->
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="./manifest_user.json">
+<meta name="theme-color" content="#ffffff">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+<style>
+/* --- הגדרת משתני צבעים (עיצוב תואם לממשק ניהול) --- */
+:root {
+  /* פלטת צבעים מודרנית (Slate Theme) */
+  --bg-body: #0f172a;       /* כחול לילה עמוק - רקע ראשי */
+  --bg-panel: #1e293b;      /* כחול כהה - כרטיסים ופאנלים */
+  --bg-input: #334155;      /* רקע לשדות קלט וכפתורים לא פעילים */
+  --border-input: #475569;  /* גבולות עדינים */
+  
+  --text-main: #f1f5f9;     /* לבן בוהק לטקסט ראשי */
+  --text-muted: #94a3b8;    /* אפור-כחלחל לטקסט משני */
+  
+  /* צבעי פעולה */
+  --accent-color: #38bdf8;  /* תכלת בהיר (כמו בממשק ניהול) */
+  --accent-hover: #0ea5e9;  /* תכלת כהה יותר למעבר עכבר */
+  
+  /* צבעי לוח שנה */
+  --day-bg: #1e293b;        /* רקע יום רגיל */
+  --day-hover: #334155;     /* רקע יום במעבר עכבר */
+  --day-disabled: #0f172a;  /* ימים לא פעילים (משתלב עם הרקע) */
+  
+  /* כותרות (מיפוי למשתנים הקיימים שלך) */
+  --title-color: #38bdf8;   /* תואם לצבע הדגשה */
+  --subtitle-color: #94a3b8; /* תואם לטקסט משני */
+  
+  /* אלמנטים נוספים */
+  --modal-bg: #1e293b;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+}
+
+body
+{
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 20px;
+  direction: rtl;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 90vh;
+}
+
+/* עדכון קטן לכרטיסים שייראו טוב יותר עם הצבעים החדשים */
+.container, .modal-content {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-input); /* מסגרת עדינה */
+  box-shadow: var(--shadow-card);
+}
+
+/* --- הגדרות למצב יום (Light Mode) --- */
+body.light-mode {
+  /* דריסת המשתנים לגוונים בהירים תואמים */
+  --bg-body: #f1f5f9;       /* רקע כללי בהיר (Slate 100) */
+  --bg-panel: #ffffff;      /* כרטיסים בלבן נקי */
+  --bg-input: #e2e8f0;      /* שדות קלט אפור-בהיר */
+  --border-input: #cbd5e1;  /* מסגרות אפורות */
+  
+  --text-main: #0f172a;     /* טקסט ראשי כהה מאוד */
+  --text-muted: #64748b;    /* טקסט משני אפור-כחלחל */
+  
+  --accent-color: #0ea5e9;  /* תכלת מעט כהה יותר שייראה טוב על לבן */
+  --accent-hover: #0284c7;
+  
+  --day-bg: #ffffff;        /* יום בלוח שנה - לבן */
+  --day-hover: #f1f5f9;     /* מעבר עכבר - אפור בהיר */
+  --day-disabled: #e2e8f0;  /* ימים לא פעילים */
+  
+  --modal-bg: #ffffff;
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* מסך טעינה */
+#loadingOverlay {
+  position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9);
+  color:white; display:none; justify-content:center; align-items:center; z-index:9999; font-size: 1.5em; flex-direction: column; text-align: center;
+}
+#loadingText { margin-bottom: 10px; }
+#connectionStatus { font-size: 0.7em; color: #aaa; }
+#retryBtn { margin-top: 20px; padding: 8px 15px; background: #4facfe; color: white; border: none; border-radius: 4px; cursor: pointer; display: none; font-size: 0.8em; }
+
+/* --- עיצוב חלונות קופצים (Modals) --- */
+#successModal, #checkResultModal {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  background: rgba(0,0,0,0.85); z-index: 10000;
+  display: none; justify-content: center; align-items: center;
+}
+
+.modal-content {
+  background: var(--modal-bg); /* משתנה */
+  color: var(--text-main);     /* משתנה */
+  padding: 30px; border-radius: 16px; width: 90%; max-width: 380px; text-align: center;
+  box-shadow: 0 10px 40px var(--shadow-color); border: 1px solid var(--border-input); position: relative;
+}
+
+.close-x { position: absolute; top: 10px; left: 15px; font-size: 2em; color: #888; cursor: pointer; transition: color 0.2s; line-height: 0.8; padding: 5px; }
+.close-x:hover { color: var(--text-main); }
+.modal-icon { font-size: 3.5em; margin-bottom: 10px; }
+.modal-text { font-size: 1.1em; color: var(--text-muted); margin-bottom: 25px; line-height: 1.6; }
+.modal-buttons { display: flex; flex-direction: column; gap: 15px; }
+
+.btn-google { background: #4285F4; color: white; padding: 14px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; font-size: 1.1em; display: block; width: 100%; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-google:hover { background: #3367d6; transform: scale(1.02); }
+.btn-ics { background: #555; color: #fff; padding: 14px; border-radius: 10px; border: 1px solid #777; font-weight: bold; cursor: pointer; font-size: 1.1em; display: block; width: 100%; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn-ics:hover { background: #666; }
+
+/* כפתור ביטול בתוך המודל */
+.btn-cancel-appt { background: #dc3545; color: white; padding: 14px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; font-size: 1.1em; width: 100%; margin-top: 10px; }
+.btn-cancel-appt:hover { background: #c82333; }
+
+/* --- מסך סיום (Post Booking) --- */
+#postBookingScreen {
+  display: none;
+  flex-direction: column; justify-content: center; align-items: center; height: 100%; text-align: center; animation: fadeIn 0.5s;
+}
+.post-btn { width: 80%; max-width: 300px; padding: 15px; margin: 10px 0; border-radius: 8px; border: none; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+.btn-return { background: #007bff; color: white; }
+.btn-return:hover { background: #0056b3; }
+.btn-exit { background: #444; color: #ccc; border: 1px solid #666; }
+.btn-exit:hover { background: #555; color: white; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* כותרות */
+h2 { color: var(--title-color); text-align: center; padding: 0; margin: 0; font-size: 1.8em; }
+#pageSubtitle { text-align: center; color: var(--text-muted); font-size: 1.1em; margin-top: 5px; margin-bottom: 10px; font-weight: normal; min-height: 20px; }
+
+#main-container { display: flex; flex-direction: row-reverse; max-width: 1250px; margin: 0 auto; gap: 10px; flex: 1; height: auto; min-height: 0; width: 100%; }
+
+.panel {
+  background: var(--bg-panel); /* משתנה */
+  padding: 12px; border-radius: 12px;
+  box-shadow: 0 4px 12px var(--shadow-color); /* משתנה */
+  overflow-y: auto; height: 100%; box-sizing: border-box;
+  transition: background 0.3s;
+}
+
+#calendarPanel { flex-basis: 340px; flex-shrink: 0; overflow-y: hidden; }
+#slotsWrapper { flex-basis: 340px; flex-shrink: 0; display: flex; flex-direction: column; }
+#form-and-check-wrapper { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; height: 100%; }
+#formPanel, #checkPanel { margin: 0; padding: 15px; flex-shrink: 0; overflow-y: visible; height: auto; }
+
+#calendarHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 5px 0; }
+#calendarHeader button { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-input); padding: 8px 12px; font-size: 1em; cursor: pointer; border-radius: 4px; }
+#calendarHeader button:hover { background: var(--day-hover); }
+#monthYearDisplay { color: var(--title-color); font-size: 1.3em; font-weight: bold; }
+
+#weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 5px; color: #aaa; font-size: 1em; }
+#calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+
+/* ימי הלוח - עיצוב נקי ללא ריבועים */
+.day {
+  text-align: center;
+  cursor: pointer;
+  background: transparent !important; /* ביטול הרקע הריבועי */
+  color: var(--text-main);
+  border: none !important;            /* ביטול המסגרות הריבועיות */
+  font-size: 1em;
+  font-weight: normal;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 35px; /* גובה ורוחב שווים ליצירת עיגול */
+  width: 35px;
+  margin: auto;
+}
+
+.day:hover {
+  background: #334155 !important; /* רקע עדין במעבר עכבר */
+  border-radius: 50%;
+}
+
+/* התאריך הנבחר - פתרון לבעיית הניגודיות */
+.day.selected-day {
+  border: 2px solid #3b82f6 !important; /* כחול מיתוגי */
+  border-radius: 50% !important;        /* הפיכה לעיגול */
+  background-color: #739ad8 !important; /* רקע כחול בולט */
+  color: #ffffff !important;            /* טקסט לבן שחובה שייראה על כחול */
+  font-weight: bold !important;
+  width: 35px;
+  height: 35px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* במידה ואתה במצב בהיר, וודא שהמספר לא הופך לכהה בטעות */
+body.light-mode .day.selected-day {
+  color: #ffffff !important; /* תמיד לבן על העיגול הכחול */
+}
+
+/* חיווי לתורים פנויים - קו קטן מתחת למספר */
+.day.has-slots {
+  border-bottom: 3px solid #10b981 !important; /* ירוק עדין */
+  border-radius: 0;
+}
+
+.day.disabled, .day.past {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+#slotsWrapper h3 { color: var(--title-color); text-align: center; margin-top: 0; font-size: 1.4em; border-bottom: 1px dashed #555; padding-bottom: 5px; }
+#slots-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 10px; }
+
+/* העתק והחלף את החלק של .slot-btn בקובץ שלך */
+.slot-btn {
+  background: #81a9dd; /* טורקיז רך */
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.1em;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.slot-btn:hover {
+  background: #009688; /* טורקיז כהה יותר */
+  transform: translateY(-2px);
+}
+.slot-btn.selected { background: #007bff; border: 3px solid #fff; }
+.slot-btn.disabled { background: #666; cursor: not-allowed; }
+
+#formPanel h3 { color: var(--subtitle-color); font-size: 1.2em; text-align: center; margin-top: 0; margin-bottom: 10px; }
+.input-group { margin-bottom: 10px; }
+.input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 1em; }
+.input-group input {
+  width: 100%; padding: 10px; font-size: 1.1em; border-radius: 5px;
+  border: 1px solid var(--border-input); /* משתנה */
+  background: var(--bg-input);           /* משתנה */
+  color: var(--text-main);               /* משתנה */
+  box-sizing: border-box;
+}
+
+#checkPanel h3 { color: var(--accent-color); text-align: center; margin-top: 0; margin-bottom: 10px; }
+#checkForm { display: flex; gap: 10px; align-items: center; }
+#checkPhone { flex-grow: 1; width: 100%; padding: 10px; font-size: 1.1em; border-radius: 5px; border: 1px solid var(--border-input); background: var(--bg-input); color: var(--text-main); box-sizing: border-box; }
+#checkBtn { padding: 10px 20px; background: var(--accent-color); color: #333; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+
+@media (max-width: 1000px) {
+  body { height: auto; overflow-y: auto; display: block; }
+  #main-container { height: auto; display: flex; flex-direction: column; }
+  .panel { flex-basis: auto; max-width: 100%; height: auto; overflow-y: visible; }
+  #calendarPanel, #slotsWrapper { flex-basis: auto; max-width: 400px; margin: 0 auto; }
+  #form-and-check-wrapper { flex-grow: 1; max-width: 100%; }
+}
+
+/* קבוצת הכפתורים - ממקם אותם אחד ליד השני */
+.action-buttons-container { display: flex; gap: 10px; margin-top: 10px; }
+/* עיצוב משותף לכפתורים */
+#bookBtn, #swapBtn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: bold; transition: background 0.2s, transform 0.1s; color: white; }
+/* צבע כפתור אישור רגיל */
+#bookBtn { background: #007bff; width: auto; }
+#bookBtn:hover { background: #0056b3; }
+/* צבע כפתור החלפה */
+#swapBtn { background: #ff9800; }
+#swapBtn:hover { background: #e68900; }
+/* מצב מבוטל לשני הכפתורים */
+#bookBtn:disabled, #swapBtn:disabled { background: #6c757d; cursor: not-allowed; opacity: 0.7; }
+
+/* העלמת החיצים בשדה מספרי (Chrome, Safari, Edge, Opera) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* העלמת החיצים בפיירפוקס */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* --- עיצוב כפתורים צפים (מסך מלא / התקנה / נושא) --- */
+#floating-controls {
+  position: fixed;
+  top: 20px;
+  left: 20px;            /* פינה שמאלית עליונה - לא מפריע לעברית */
+  z-index: 99999;        /* תמיד מעל הכל */
+  display: flex;
+  gap: 12px;             /* רווח בין הכפתורים */
+  align-items: center;
+  direction: ltr;        /* כדי שהסדר יהיה קבוע משמאל לימין */
+}
+
+.float-btn {
+  height: 42px;          /* גובה אחיד ונוח */
+  background: var(--bg-panel);
+  border: 1px solid var(--border-input);
+  color: var(--text-main);
+  border-radius: 50px;   /* צורה עגולה/קפסולה */
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;       /* ריפוד רחב */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+/* כפתור מסך מלא - תמיד עגול */
+#fullscreenBtn {
+  width: 42px;           /* רוחב = גובה */
+  padding: 0;
+  border-color: #75FBFD; /* מסגרת טורקיז */
+  color: #75FBFD;
+}
+
+/* כפתור התקנה - מיוחד */
+#installAppBtn {
+  background: rgba(117, 251, 253, 0.1);
+  border-color: #75FBFD;
+  color: #75FBFD;
+  gap: 8px;
+}
+
+/* כפתור יום/לילה */
+#themeBtn {
+  gap: 8px;
+  min-width: 42px;
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* אפקטים במעבר עכבר */
+.float-btn:hover {
+  transform: translateY(-2px);
+  background: var(--bg-input);
+}
+#fullscreenBtn:hover, #installAppBtn:hover {
+  box-shadow: 0 0 15px rgba(117, 251, 253, 0.3);
+}
+
+/* --- התאמה לנייד (Mobile) - הופך לאייקונים קטנים --- */
+/* --- התאמה לנייד (Mobile) - הופך לפס עליון קבוע ולא צף --- */
+@media (max-width: 600px) {
+  #floating-controls {
+    position: relative; /* 👈 השינוי החשוב: כבר לא צף, אלא חלק מהדף */
+    top: auto;
+    left: auto;
+    width: 100%;       /* תופס את כל הרוחב */
+    padding: 10px;     /* קצת מרווח */
+    margin-bottom: 0;  /* נצמד לכותרת שמתחתיו */
+    background: transparent; /* או צבע רקע אם תרצה */
+    justify-content: flex-start; /* מצמיד לשמאל (או center למרכז) */
+  }
+  
+  .float-btn {
+    height: 38px;      /* כפתור קטן יותר */
+    padding: 0;
+    width: 38px;       /* עיגול מושלם */
+    border-radius: 50%;
+    justify-content: center;
+  }
+  
+  /* הסתרת הטקסט בטלפון */
+  .btn-text {
+    display: none;
+  }
+  
+  .btn-icon {
+    margin: 0;
+  }
+  
+}
+
+/* --- שיפור ריווח למסכים גדולים (תיקון סופי) --- */
+
+/* כשהמסך גדול (מחשב/טאבלט) */
+@media (min-width: 601px) {
+  
+  /* הוספת הרווח לתיבה שעוטפת את שתי הכותרות יחד */
+  #header-area {
+    margin-bottom: 60px;  /* זה דוחף את כל הפנלים למטה */
+    transition: all 0.3s ease;
+  }
+  
+  /* הגדלת הכותרת הראשית במחשב */
+  h2 {
+    font-size: 2.5rem;
+  }
+  
+  /* הגדלת כותרת המשנה במחשב */
+  #pageSubtitle {
+    font-size: 1.5rem;
+    margin-top: 0;        /* מוודא שהיא נשארת צמודה לכותרת שמעליה */
+  }
+  
+  /* רוחב מקסימלי לתוכן */
+  #main-container {
+    max-width: 1000px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="floating-controls">
+
+<button id="fullscreenBtn" class="float-btn" onclick="toggleFullScreen()" title="מסך מלא">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#75FBFD">
+<path d="M792-576v-120H672v-72h120q30 0 51 21.15T864-696v120h-72Zm-696 0v-120q0-30 21.15-51T168-768h120v72H168v120H96Zm576 384v-72h120v-120h72v120q0 30-21.15 51T792-192H672Zm-504 0q-30 0-51-21.15T96-264v-120h72v120h120v72H168Zm72-144v-288h480v288H240Zm72-72h336v-144H312v144Zm0 0v-144 144Z"/>
+</svg>
+</button>
+
+<button id="themeBtn" class="float-btn" onclick="toggleTheme()">
+<span class="btn-icon">☀️</span>
+<span class="btn-text">יום</span>
+</button>
+
+<!-- ******************כפתור התקנה***************
+<button id="installUserBtn" class="float-btn" onclick="installPWA()" title="התקן אפליקציה">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#75FBFD">
+<path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/>
+</svg>
+<span class="btn-text">התקנה</span>
+</button>
+******************כפתור התקנה*************** -->
+
+</div>
+<div id="successModal">
+<div class="modal-content">
+<span class="close-x" onclick="closeSuccessModal()">&times;</span>
+<div class="modal-icon">✅</div>
+<h3 style="margin:0; color:#4CAF50;">התור נקבע בהצלחה!</h3>
+<p id="successText" class="modal-text"></p>
+<div class="modal-buttons">
+<button id="btnGoogle" class="btn-google">📅 הוסף ליומן Google</button>
+<button id="btnIcs" class="btn-ics">📂 הורד קובץ יומן (Outlook/אחר)</button>
+</div>
+<div style="margin-top:15px; font-size:0.8em; color:#888;">בחר אפשרות או סגור ב-X</div>
+</div>
+</div>
+
+<div id="checkResultModal">
+<div class="modal-content">
+<span class="close-x" onclick="document.getElementById('checkResultModal').style.display='none'">&times;</span>
+
+<div id="checkModalIcon" class="modal-icon"></div>
+<h3 id="checkModalTitle" style="margin:0;"></h3>
+<p id="checkModalText" class="modal-text" style="margin-top:10px;"></p>
+
+<div id="checkModalActions" class="modal-buttons">
+</div>
+</div>
+</div>
+
+<div id="loadingOverlay">
+<div id="loadingText">מתחבר למערכת התורים...</div>
+<div id="connectionStatus">יוצר חיבור מאובטח</div>
+<button id="retryBtn" onclick="location.reload()">נסה לטעון מחדש</button>
+</div>
+
+<div id="header-area">
+<h2 id="mainTitle">מערכת להזמנת תורים</h2>
+<h3 id="pageSubtitle"></h3>
+</div>
+
+<div id="main-container">
+<div id="calendarPanel" class="panel">
+<div id="calendarHeader">
+<button onclick="prevMonth()"> &lt; קודם</button>
+<h3 id="monthYearDisplay"></h3>
+<button onclick="nextMonth()"> הבא &gt;</button>
+</div>
+<div id="weekdays"><div>א'</div><div>ב'</div><div>ג'</div><div>ד'</div><div>ה'</div><div>ו'</div><div>ש'</div></div>
+<div id="calendar"></div>
+</div>
+
+<div id="slotsWrapper" class="panel">
+<h3>בחר תור פנוי: <span id="selectedDateDisplay"></span></h3>
+<div id="slots-list">
+<p style="text-align:center; color:#ccc;">בחר תאריך בלוח השנה להצגת תורים פנויים.</p>
+</div>
+</div>
+
+<div id="form-and-check-wrapper">
+<div id="formPanel" class="panel">
+<h3>פרטי הזמנה</h3>
+<div class="input-group">
+<label for="firstName"> </label>
+<input type="text" id="firstName" placeholder="שם פרטי" required autocomplete="off">
+</div>
+<div class="input-group">
+<label for="lastName"> </label>
+<input type="text" id="lastName" placeholder="שם משפחה" required autocomplete="off">
+</div>
+<div class="input-group">
+<label for="phone"> </label>
+<input type="tel" id="phone" placeholder="טלפון" required autocomplete="off">
+</div>
+<div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 10px;">
+
+<div style="display: flex; gap: 10px; width: 100%;">
+<button id="bookBtn" onclick="bookAppointment(false)" disabled style="flex: 1; padding: 12px; white-space: nowrap;">✅ אשר הזמנה</button>
+<button id="swapBtn" onclick="bookAppointment(true)" disabled style="flex: 1; padding: 12px; white-space: nowrap;">🔄 החלף תור</button>
+</div>
+
+</div>
+<p id="bookingMessage" style="text-align:center; margin-top:10px; font-weight:bold;"></p>
+</div>
+
+<div id="checkPanel" class="panel">
+<h3>בדיקת תור קיים / ביטול</h3>
+<div id="checkForm">
+<input type="tel" id="checkPhone" placeholder="הכנס טלפון לבדיקה" autocomplete="off">
+<button id="checkBtn" onclick="checkAppointment(true)">🔍 בדוק תור</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="postBookingScreen">
+<h1 id="postTitle" style="color:#4CAF50; font-size: 3em;">תודה!</h1>
+<h2 id="postSubtitle" style="color:#ddd; margin-bottom: 30px;">התור שלך נשמר במערכת.</h2>
+
+<button id="btnReturn" class="post-btn btn-return" onclick="returnToBooking()">
+✏️ חזרה למערכת
+</button>
+
+<button class="post-btn btn-exit" onclick="exitSystem()">
+👋 סיום ויציאה מהמערכת
+</button>
+</div>
+
+<script>
+// פונקציה לניקוי קלט (מונעת הזרקת קוד HTML/JS)
+function sanitizeInput(input) {
+  if (!input) return "";
+  return input.toString()
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#039;");
+}
+// === משתנה גלובלי לאתגר המתמטי ===
+let correctMathAnswer = 0;
+let cancelMathAnswer = 0;
+
+// === פונקציה ליצירת תרגיל חדש ===
+function generateMathChallenge() {
+  // 1. הגרלה וחישוב
+  const n1 = Math.floor(Math.random() * 9) + 1;
+  const n2 = Math.floor(Math.random() * 9) + 1;
+  correctMathAnswer = n1 + n2;
+  
+  // 2. הצגה על המסך
+  const qEl = document.getElementById('mathQ');
+  if (qEl) qEl.innerText = `${n1} + ${n2}`;
+  
+  // 3. חשיפת האזור
+  const ansInput = document.getElementById('mathAns');
+  const container = document.getElementById('humanCheck');
+  
+  if (container) container.style.display = 'block';
+  
+  // 4. לוגיקת פוקוס חכמה
+  if (ansInput) {
+    ansInput.value = ''; // איפוס תשובה קודמת
+    
+    const phoneEl = document.getElementById('phone');
+    
+    // התנאי החכם: נעביר פוקוס לחידה *רק אם* הטלפון כבר מלא (10 ספרות)
+    // אחרת - לא נפריע למשתמש, הוא יגיע לשם לבד אחרי הטלפון
+    if (phoneEl && phoneEl.value.length === 10) {
+      setTimeout(() => {
+        ansInput.focus();
+      }, 100);
+    }
+  }
+}
+function generateCancelMathChallenge() {
+  const n1 = Math.floor(Math.random() * 9) + 1;
+  const n2 = Math.floor(Math.random() * 9) + 1;
+  cancelMathAnswer = n1 + n2;
+  
+  const qEl = document.getElementById('cancelMathQ');
+  const ansEl = document.getElementById('cancelMathAns');
+  
+  if (qEl) qEl.innerText = `${n1} + ${n2}`;
+  if (ansEl) ansEl.value = '';
+  // ⬅️ פוקוס אוטומטי לשדה התשובה
+  setTimeout(() => {
+    ansEl.focus();
+  }, 50);
+}
+
+// --- פונקציית החלפת ערכת נושא (חדש) ---
+function toggleTheme() {
+  document.body.classList.toggle('light-mode');
+  const isLight = document.body.classList.contains('light-mode');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+// הפעלה בטעינת הדף
+(function() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light-mode');
+  }
+})();
+
+// ------------------- החלפה------------------
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyA3UGkULozPWRmUGzFPFml67vK0QssEL5U",
+  authDomain: "my-car-app-f2235.firebaseapp.com",
+  databaseURL: "https://my-car-app-f2235-default-rtdb.firebaseio.com",
+  projectId: "my-car-app-f2235",
+  storageBucket: "my-car-app-f2235.firebasestorage.app",
+  messagingSenderId: "937970174514",
+  appId: "1:937970174514:web:c4c2fe7c706220b07e0a2b"
+};
+
+// Initialize Firebase
+//const app = initializeApp(firebaseConfig);
+// ------------------- החלפה------------------
+
+let db;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+} catch (error) {
+  console.error("Firebase Init Error:", error);
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('connectionStatus').innerText = "שגיאה בטעינת המערכת. בדוק חיבור לאינטרנט.";
+  document.getElementById('retryBtn').style.display = 'block';
+}
+
+let globalData = {};
+let selectedDate = null;
+let selectedTime = null;
+let systemCalendarTitle = "תור חדש";
+
+function normalizePhone(phone) {
+  if (!phone) return '';
+  return phone.replace(/[\s-]/g, '');
+}
+
+function dateToKey(dateObj){
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth()+1).padStart(2,"0");
+  const d = String(dateObj.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+
+function timeToMinutes(t){
+  if (!t || typeof t !== 'string') return -1;
+  const parts = t.split(":").map(Number);
+  if (parts.length !== 2) return -1;
+  const [h,m] = parts;
+  if(isNaN(h) || isNaN(m)) return -1;
+  return h*60+m;
+}
+function minutesToTime(x){ return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
+
+/* =====================================================
+פונקציה ליצירת תורים (מסונכרנת עם המנהל)
+===================================================== */
+function generateSlotsWithBreaks(start, end, interval, breaks = []) {
+  const out = [];
+  let t = timeToMinutes(start);
+  let endMin = timeToMinutes(end);
+  const step = Number(interval);
+  
+  // טיפול ב-00:00 כסוף יום (24:00)
+  if (endMin === 0 && t > 0) {
+    endMin = 1440;
+  }
+  
+  if (t === -1 || endMin === -1 || !step || step <= 0 || t > endMin) return [];
+  
+  // מיפוי הפסקות
+  const brs = (breaks || [])
+  .map(b => ({ start: timeToMinutes(b.start), end: timeToMinutes(b.end) }))
+  .filter(b => b.start !== -1 && b.end !== -1 && b.end > b.start)
+  .sort((a,b) => a.start - b.start);
+  
+  // לולאה רצה כל עוד הזמן קטן משעת הסיום (t < endMin)
+  // זה מבטיח שלא ייפתח תור חדש בדיוק על שעת הסיום
+  while (t < endMin) {
+    
+    // דילוג על הפסקות
+    const inBr = brs.find(b => t >= b.start && t < b.end);
+    if (inBr) {
+      t = inBr.end;
+      continue;
+    }
+    
+    // אם התור נכנס בטווח הזמן - הוסף אותו
+    if (t + step <= endMin) {
+      out.push(minutesToTime(t));
+    }
+    
+    t += step;
+  }
+  
+  return out;
+}
+
+function createGoogleCalLink(date, time, interval, customTitle) {
+  const startTime = new Date(`${date}T${time}`);
+  const endTime = new Date(startTime.getTime() + interval * 60000);
+  const format = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+  const title = encodeURIComponent(customTitle);
+  const details = encodeURIComponent("נקבע תור במערכת הניהול.");
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${format(startTime)}/${format(endTime)}&details=${details}&sf=true&output=xml`;
+}
+
+function downloadICS(date, time, interval, customTitle) {
+  const startTime = new Date(`${date}T${time}`);
+  const endTime = new Date(startTime.getTime() + interval * 60000);
+  const format = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+  const icsContent = [
+  "BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT",
+  `DTSTART:${format(startTime)}`, `DTEND:${format(endTime)}`,
+  `SUMMARY:${customTitle}`, "DESCRIPTION:נקבע תור במערכת.",
+  "END:VEVENT", "END:VCALENDAR"
+  ].join("\n");
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = window.URL.createObjectURL(blob);
+  link.setAttribute('download', `appointment_${date}.ics`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function showSuccessModal(date, time, interval, name) {
+  const modal = document.getElementById('successModal');
+  const btnGoogle = document.getElementById('btnGoogle');
+  const btnIcs = document.getElementById('btnIcs');
+  const text = document.getElementById('successText');
+  const finalTitle = systemCalendarTitle || `תור ל-${name}`;
+  text.innerHTML = `${name},<br>נקבע לך תור לתאריך <b>${date}</b> בשעה <b>${time}</b>.`;
+  btnGoogle.onclick = function() { window.open(createGoogleCalLink(date, time, interval, finalTitle), '_blank'); setTimeout(closeSuccessModal, 500); };
+  btnIcs.onclick = function() { downloadICS(date, time, interval, finalTitle); setTimeout(closeSuccessModal, 500); };
+  modal.style.display = 'flex';
+  window.onclick = function(event) { if (event.target == modal) closeSuccessModal(); }
+}
+
+function closeSuccessModal() {
+  document.getElementById('successModal').style.display = 'none';
+  
+  document.getElementById('header-area').style.display = 'none';
+  document.getElementById('main-container').style.display = 'none';
+  
+  const title = document.getElementById('postTitle');
+  const sub = document.getElementById('postSubtitle');
+  const btn = document.getElementById('btnReturn');
+  
+  title.innerText = "תודה!";
+  title.style.color = "#4CAF50";
+  
+  sub.innerText = "התור שלך נשמר במערכת.";
+  
+  btn.innerHTML = `✏️ חזרה למערכת<br><span style="font-size:0.7em; font-weight:normal;">(לשינוי מועד תור / ביטול)</span>`;
+  
+  document.getElementById('postBookingScreen').style.display = 'flex';
+  
+  selectedTime = null;
+  updateBookingState();
+  document.getElementById("checkPhone").value = '';
+}
+
+function returnToBooking() {
+  document.getElementById('postBookingScreen').style.display = 'none';
+  document.getElementById('header-area').style.display = 'block';
+  document.getElementById('main-container').style.display = 'flex';
+  if(selectedDate) { renderAvailableSlots(); }
+}
+
+function exitSystem() {
+  document.getElementById("firstName").value = '';
+  document.getElementById("lastName").value = '';
+  document.getElementById("phone").value = '';
+  document.body.innerHTML = `
+  <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; text-align:center;">
+  <h1 style="color:#4facfe;">להתראות!</h1>
+  <p style="color:#ccc;">המשך יום נעים.</p>
+  <button onclick="location.reload()" style="margin-top:20px; padding:10px 20px; background:#444; color:white; border:none; border-radius:5px; cursor:pointer;">
+  התחל מחדש
+  </button>
+  </div>
+  `;
+}
+
+let currentMonthDate = new Date();
+function prevMonth() { currentMonthDate.setMonth(currentMonthDate.getMonth() - 1); buildCalendar(); }
+function nextMonth() { currentMonthDate.setMonth(currentMonthDate.getMonth() + 1); buildCalendar(); }
+
+function buildCalendar(){
+  const cal = document.getElementById("calendar"); cal.innerHTML="";
+  const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+  document.getElementById("monthYearDisplay").innerText = `${monthNames[month]} ${year}`;
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const now = new Date();
+  const todayKey = dateToKey(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+  
+  for(let i=0; i<firstDay; i++) cal.appendChild(document.createElement("div"));
+  
+  for(let d=1; d<=daysInMonth; d++){
+    const dateObj = new Date(year,month,d);
+    const key = dateToKey(dateObj);
+    const div = document.createElement("div");
+    div.className="day";
+    div.innerText=d;
+    div.setAttribute("data-date", key);
+    
+    if (key < todayKey) {
+      div.classList.add("disabled", "past");
+    } else {
+      const dayData = globalData[key];
+      if (!dayData || !dayData.settings) {
+        div.classList.add("disabled");
+      } else {
+        let availableSlots = getAvailableSlots(dayData);
+        if (key === todayKey) {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          availableSlots = availableSlots.filter(time => timeToMinutes(time) > currentMinutes);
+        }
+        if(availableSlots.length > 0) {
+          div.classList.add("has-slots");
+          div.onclick = () => selectDate(key);
+        } else {
+          div.classList.add("disabled");
+        }
+      }
+    }
+    if(key === selectedDate) div.classList.add("selected-day");
+    cal.appendChild(div);
+  }
+}
+
+function selectDate(dateKey) {
+  selectedDate = dateKey;
+  selectedTime = null;
+  
+  // 1. הסרת הסימון מכל הימים בלוח
+  document.querySelectorAll('.day').forEach(d => d.classList.remove('selected-day'));
+  
+  // 2. הוספת הסימון (העיגול הכחול) ליום שנלחץ
+  const currentDayEl = document.querySelector(`[data-date="${dateKey}"]`);
+  if (currentDayEl) {
+    currentDayEl.classList.add('selected-day');
+  }
+  
+  renderAvailableSlots();
+  updateBookingState();
+}
+
+function getAvailableSlots(dayData){
+  if(!dayData || !dayData.settings) return [];
+  const s = dayData.settings || {};
+  const baseSlots = generateSlotsWithBreaks(s.range1Start, s.range1End, s.range1Interval, s.breaks || []);
+  const appointments = dayData.appointments || [];
+  const globalCap = parseInt(s.maxSlots) || 1;
+  const extraTimes = appointments.filter(a => a.status === 'EXTRA_CAPACITY').map(a => a.time);
+  const allTimes = [...new Set([...baseSlots, ...extraTimes])];
+  const available = allTimes.filter(time => {
+    const extras = appointments.filter(a => a.time === time && a.status === 'EXTRA_CAPACITY').length;
+    const limit = (baseSlots.includes(time) ? globalCap : 0) + extras;
+    const used = appointments.filter(a => a.time === time && (a.phone || a.status === 'DELETED')).length;
+    return used < limit;
+  });
+  const manualOutOfRange = appointments.filter(a => a.status === "MANUAL" && !baseSlots.includes(a.time)).map(a => a.time);
+  const validManualOutOfRange = manualOutOfRange.filter(time => {
+    const bookings = appointments.filter(a => a.time === time && a.phone && a.status !== "DELETED").length;
+    const manuals = appointments.filter(a => a.time === time && a.status === "MANUAL").length;
+    return bookings < manuals;
+  });
+  return [...new Set(available.concat(validManualOutOfRange))].sort();
+}
+
+function renderAvailableSlots(){
+  const slotsDiv = document.getElementById("slots-list");
+  if (!selectedDate) {
+    slotsDiv.innerHTML = '<p style="text-align:center; color:#ccc;">בחר תאריך בלוח השנה להצגת תורים פנויים.</p>';
+    return;
+  }
+  const dayData = globalData[selectedDate] || {};
+  let availableSlots = getAvailableSlots(dayData);
+  const now = new Date();
+  if (selectedDate === dateToKey(now)) {
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    availableSlots = availableSlots.filter(time => timeToMinutes(time) > currentMinutes);
+  }
+  if (availableSlots.length === 0) {
+    slotsDiv.innerHTML = '<p style="text-align:center; color:orange; font-weight:bold;">אין תורים פנויים (או שזמנם עבר).</p>';
+    return;
+  }
+  let html = '';
+  availableSlots.forEach(time => {
+    const isSelected = selectedTime === time ? ' selected' : '';
+    html += `<button class="slot-btn${isSelected}" data-time="${time}" onclick="selectTime('${time}', this)">${time}</button>`;
+  });
+  slotsDiv.innerHTML = html;
+}
+
+function selectTime(time, element){
+  selectedTime = time;
+  document.querySelectorAll('.slot-btn').forEach(btn => btn.classList.remove('selected'));
+  element.classList.add('selected');
+  updateBookingState();
+  generateMathChallenge();
+}
+
+function updateBookingState(){
+  const bookBtn = document.getElementById("bookBtn");
+  const swapBtn = document.getElementById("swapBtn"); // הוספנו את הכפתור החדש
+  const msg = document.getElementById("bookingMessage");
+  
+  if(selectedDate && selectedTime){
+    bookBtn.disabled = false;
+    swapBtn.disabled = false; //מפעיל את כפתור החלפת תור
+    msg.innerText = `תור נבחר: ${selectedDate}, שעה ${selectedTime}`;
+    msg.style.color = '#4CAF50';
+  } else {
+    bookBtn.disabled = true;
+    swapBtn.disabled = true; //מכבה את כפתור החלפת תור
+    msg.innerText = "יש לבחור תאריך ותור פנוי.";
+    msg.style.color = 'orange';
+  }
+}
+
+// --- לוגיקה חדשה: בדיקת תור עם חלון קופץ ---
+
+function cancelExistingAppointmentLogic(data, dateKey, time, phone) {
+  if (!data[dateKey] || !data[dateKey].appointments) return data;
+  const appts = data[dateKey].appointments;
+  const normPhone = normalizePhone(phone);
+  const index = appts.findIndex(a => a.time === time && normalizePhone(a.phone) === normPhone);
+  if (index > -1) appts.splice(index, 1);
+  return data;
+}
+
+// =========================================================================
+// === קוד חדש: טיפול בריבוי תורים (בדיקה, ביטול, החלפה) ===
+// =========================================================================
+
+// --- 1. מציאת כל התורים העתידיים של טלפון מסוים ---
+function getAllFutureAppointments(phone) {
+  const normalizedPhone = normalizePhone(phone);
+  const todayKey = dateToKey(new Date());
+  let results = [];
+  
+  for (const [dateKey, dayData] of Object.entries(globalData)) {
+    // בודקים רק תאריכים מהיום והלאה
+    if (dateKey >= todayKey && dayData.appointments) {
+      dayData.appointments.forEach(appt => {
+        const storedPhone = normalizePhone(appt.phone);
+        // בדיקה: טלפון תואם וסטטוס לא מחוק
+        if (storedPhone === normalizedPhone && appt.status !== "DELETED") {
+          results.push({
+            ...appt,
+            date: dateKey // שומרים את התאריך לצורך זיהוי
+          });
+        }
+      });
+    }
+  }
+  // מיון לפי תאריך ושעה
+  return results.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+}
+
+// --- 2. בדיקת תורים (Check) - מציג רשימה אם יש ריבוי תורים ---
+function checkAppointment(showOverlay = true){
+  const rawCheckPhone = document.getElementById("checkPhone").value.trim();
+  const checkPhone = normalizePhone(rawCheckPhone);
+  
+  const modal = document.getElementById('checkResultModal');
+  const icon = document.getElementById('checkModalIcon');
+  const title = document.getElementById('checkModalTitle');
+  const text = document.getElementById('checkModalText');
+  const actions = document.getElementById('checkModalActions');
+  
+  // בדיקה 1: האם השדה ריק
+  if(!checkPhone){
+    if(showOverlay) {
+      icon.innerText = "❌";
+      title.innerText = "שגיאה";
+      title.style.color = "#dc3545";
+      text.innerText = "נא להזין טלפון לבדיקה.";
+      actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
+      modal.style.display = 'flex';
+    }
+    return;
+  }
+  
+  // === תוספת חדשה: בדיקת 10 ספרות ===
+  if(checkPhone.length !== 10){
+    if(showOverlay) {
+      icon.innerText = "⚠️";
+      title.innerText = "מספר לא תקין";
+      title.style.color = "orange";
+      text.innerText = "מספר הטלפון חייב להכיל 10 ספרות בדיוק.";
+      actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
+      modal.style.display = 'flex';
+    }
+    return;
+  }
+  // ===================================
+  
+  const allAppts = getAllFutureAppointments(checkPhone);
+  
+  if(allAppts.length > 0){
+    icon.innerText = "📅";
+    title.innerText = `נמצאו ${allAppts.length} תורים`;
+    title.style.color = "#4CAF50";
+    
+    // בניית רשימה לצפייה וביטול
+    let htmlList = `<div style="text-align:right; max-height:200px; overflow-y:auto; margin-bottom:15px; border:1px solid #444; padding:10px; border-radius:8px;">`;
+    
+    allAppts.forEach(appt => {
+      htmlList += `
+      <div style="background:var(--bg-input); padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid var(--border-input); display:flex; justify-content:space-between; align-items:center;">
+      <div>
+      <div style="font-weight:bold; font-size:1.1em;">${appt.date}</div>
+      <div style="color:var(--accent-color);">${appt.time}</div>
+      </div>
+      <button onclick="showCancelConfirmModal('${appt.date}', '${appt.time}', '${checkPhone}')"
+      style="background:#dc3545; color:white; border:none; border-radius:4px; padding:5px 10px; cursor:pointer;">
+      ביטול
+      </button>
+      </div>
+      `;
+    });
+    htmlList += `</div>`;
+    
+    text.innerHTML = htmlList;
+    actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
+    
+  } else {
+    icon.innerText = "❌";
+    title.innerText = "לא נמצא";
+    title.style.color = "#dc3545";
+    text.innerText = "לא נמצאו תורים פעילים למספר זה.";
+    actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
+  }
+  
+  modal.style.display = 'flex';
+}
+
+function showCancelConfirmModal(dateKey, time, phone) {
+  const modal = document.getElementById('checkResultModal');
+  const icon = document.getElementById('checkModalIcon');
+  const title = document.getElementById('checkModalTitle');
+  const text = document.getElementById('checkModalText');
+  const actions = document.getElementById('checkModalActions');
+  
+  icon.innerText = "⚠️";
+  title.innerText = "אישור ביטול תור";
+  title.style.color = "#dc3545";
+  
+  text.innerHTML = `
+  <div style="
+  background:var(--bg-input);
+  padding:12px;
+  border-radius:8px;
+  border:1px solid var(--border-input);
+  text-align:right;
+  margin-bottom:12px;
+  ">
+  <div><b>תאריך:</b> ${dateKey}</div>
+  <div><b>שעה:</b> ${time}</div>
+  </div>
+  
+  <div style="
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border-input);
+  border-radius:8px;
+  padding:10px;
+  text-align:center;
+  ">
+  <div style="margin-bottom:6px; font-size:0.9em; color:var(--text-muted);">
+  בדיקת אבטחה
+  </div>
+  
+  <div style="display:flex; justify-content:center; align-items:center; gap:8px; direction:ltr;">
+  <span id="cancelMathQ" style="font-size:1.2em; font-weight:bold;">?</span>
+  <span>=</span>
+  <input id="cancelMathAns" type="number"
+  style="
+  width:60px;
+  text-align:center;
+  padding:6px;
+  border-radius:6px;
+  border:1px solid var(--border-input);
+  background:var(--bg-input);
+  color:var(--text-main);
+  font-size:1.1em;
+  ">
+  </div>
+  </div>
+  `;
+  
+  actions.innerHTML = `
+  <button class="btn-cancel-appt"
+  onclick="confirmCancelAppointment('${dateKey}','${time}','${phone}')">
+  ❌ בטל תור
+  </button>
+  <button class="btn-exit"
+  onclick="document.getElementById('checkResultModal').style.display='none'">
+  חזרה
+  </button>
+  `;
+  generateCancelMathChallenge();
+  
+  modal.style.display = 'flex';
+}
+
+function confirmCancelAppointment(dateKey, time, phone) {
+  const userAns = parseInt(document.getElementById('cancelMathAns').value);
+  
+  if (isNaN(userAns) || userAns !== cancelMathAnswer) {
+    alert("תשובת האבטחה שגויה. נסה שוב.");
+    generateCancelMathChallenge();
+    return;
+  }
+  
+  document.getElementById('checkResultModal').style.display = 'none';
+  cancelAppointmentFinal(dateKey, time, phone);
+}
+
+// --- 3. ביטול תור ספציפי ---
+async function cancelAppointmentFinal(dateKey, time, phone){
+  
+  const data = JSON.parse(JSON.stringify(globalData));
+  const day = data[dateKey];
+  const normalizedPhone = normalizePhone(phone);
+  
+  if (!day || !day.appointments) { alert("התור לא נמצא."); return; }
+  
+  const index = day.appointments.findIndex(a => a.time === time && normalizePhone(a.phone) === normalizedPhone && a.status !== "DELETED");
+  
+  if (index > -1) {
+    day.appointments.splice(index, 1);
+    await saveData(data);
+    
+    showPostActionScreen("בוטל", "#dc3545", "התור בוטל בהצלחה.");
+    document.getElementById("checkPhone").value = '';
+  } else {
+    alert("שגיאה במחיקת התור.");
+  }
+}
+
+// --- 4. הזמנת תור / החלפה (לוגיקה ראשית) ---
+// ==========================================
+// === 1. לוגיקה לחלון התרגיל החדש ===
+// ==========================================
+let pendingActionCallback = null;
+let verifyCorrectAnswer = 0;
+
+function openMathVerifyModal(actionCallback) {
+  pendingActionCallback = actionCallback;
+  
+  // יצירת תרגיל חדש
+  const n1 = Math.floor(Math.random() * 9) + 1;
+  const n2 = Math.floor(Math.random() * 9) + 1;
+  verifyCorrectAnswer = n1 + n2;
+  
+  // עדכון המספרים בחלון
+  document.getElementById('verifyMathQ').innerText = `${n1} + ${n2}`;
+  const input = document.getElementById('verifyMathAns');
+  input.value = '';
+  
+  // הצגת החלון (Flex למרכוז)
+  document.getElementById('mathVerifyModal').style.display = 'flex';
+  
+  // פוקוס אוטומטי לשדה התשובה
+  setTimeout(() => { input.focus(); }, 150);
+}
+
+function submitMathVerify() {
+  const userAns = parseInt(document.getElementById('verifyMathAns').value);
+  
+  if (userAns === verifyCorrectAnswer) {
+    // תשובה נכונה - סגור חלון ובצע את הפעולה
+    document.getElementById('mathVerifyModal').style.display = 'none';
+    if (pendingActionCallback) {
+      pendingActionCallback();
+      pendingActionCallback = null;
+    }
+  } else {
+    alert("תשובה שגויה, נסה שוב.");
+    document.getElementById('verifyMathAns').value = '';
+    document.getElementById('verifyMathAns').focus();
+  }
+}
+
+// מאפשר לחיצת Enter בתוך חלון התרגיל
+const verifyInputEl = document.getElementById('verifyMathAns');
+if(verifyInputEl){
+  verifyInputEl.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') submitMathVerify();
+  });
+}
+
+// ==========================================
+// === פונקציית הזמנה ראשית (bookAppointment) - מתוקנת ===
+// ==========================================
+async function bookAppointment(isSwap = false) {
+  // --- א. איסוף נתונים ---
+  const rawFirst = document.getElementById("firstName").value.trim();
+  const rawLast = document.getElementById("lastName").value.trim();
+  const rawPhone = document.getElementById("phone").value.trim();
+  
+  // ניקוי נתונים
+  const first = (typeof sanitizeInput === 'function') ? sanitizeInput(rawFirst) : rawFirst;
+  const last = (typeof sanitizeInput === 'function') ? sanitizeInput(rawLast) : rawLast;
+  const phone = rawPhone.replace(/\D/g,''); // רק ספרות
+  
+  // --- ב. בדיקות תקינות בסיסיות ---
+  if (!selectedDate || !selectedTime) {
+    alert("נא לבחור תאריך ושעה.");
+    return;
+  }
+  if (!first || !last || !phone) {
+    alert("נא למלא את כל הפרטים.");
+    return;
+  }
+  if (phone.length !== 10) {
+    alert("מספר טלפון חייב להכיל 10 ספרות בדיוק.");
+    return;
+  }
+  
+  // --- ג. בדיקת תורים קיימים במערכת ---
+  // שולפים את כל התורים העתידיים של הטלפון הזה
+  const allAppts = getAllFutureAppointments(phone);
+  
+  // --- ד. ניתוב לפי סוג פעולה ---
+  
+  // מקרה 1: הזמנה רגילה (המשתמש לחץ על "אשר הזמנה")
+  if (!isSwap) {
+    // ==> התיקון שהיה חסר: בדיקה אם כבר יש תור <==
+    if (allAppts.length > 0) {
+      alert(`קיימים לך ${allAppts.length} תורים במערכת.\nלא ניתן להוסיף תור חדש.\n\nכדי לשנות מועד, לחץ על הכפתור הכתום: "החלף תור קיים".`);
+      return; // עצור כאן! אל תפתח את התרגיל.
+    }
+    
+    // אם אין תורים -> פתח בדיקת אבטחה -> ואז בצע הזמנה
+    openMathVerifyModal(() => {
+      performBooking(first, last, phone, selectedDate, selectedTime);
+    });
+    return;
+  }
+  
+  // מקרה 2: החלפת תור (המשתמש לחץ על "החלף תור")
+  
+  // אם אין לו תורים בכלל להחליף
+  if (allAppts.length === 0) {
+    alert("לא נמצאו תורים קיימים להחלפה עבור מספר זה.");
+    return;
+  }
+  
+  // אם יש תור אחד - החלפה ישירה
+  if (allAppts.length === 1) {
+    const oldAppt = allAppts[0];
+    openMathVerifyModal(() => {
+      performBooking(first, last, phone, selectedDate, selectedTime, oldAppt);
+    });
+  }
+  // אם יש ריבוי תורים - פתיחת רשימת בחירה
+  else {
+    showSwapSelectionModal(allAppts, first, last, phone);
+  }
+}
+
+// ==========================================
+// === פונקציות טיפול בריבוי תורים (החלפה) ===
+// ==========================================
+
+function showSwapSelectionModal(appts, first, last, phone) {
+  const modal = document.getElementById('checkResultModal');
+  const title = document.getElementById('checkModalTitle');
+  const text = document.getElementById('checkModalText');
+  const actions = document.getElementById('checkModalActions');
+  const icon = document.getElementById('checkModalIcon');
+  
+  // עיצוב
+  if(icon) icon.innerText = "🔄";
+  if(title) {
+    title.innerText = "בחר תור להחלפה";
+    title.style.color = "#ff9800";
+  }
+  
+  // בניית הרשימה
+  let html = `<p style="margin-bottom:10px;">בחר את התור שברצונך <b>לבטל</b>:</p>`;
+  html += `<div style="text-align:right; max-height:200px; overflow-y:auto; border:1px solid #444; padding:10px; border-radius:8px;">`;
+  
+  appts.forEach(appt => {
+    const apptDataStr = encodeURIComponent(JSON.stringify(appt));
+    
+    html += `
+    <div style="background:var(--bg-input, #333); padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid #555; display:flex; justify-content:space-between; align-items:center;">
+    <div>
+    <div style="font-weight:bold;">${appt.date}</div>
+    <div style="color:#aaa;">${appt.time}</div>
+    </div>
+    
+    <button onclick="prepareSwapFromList('${apptDataStr}', '${first}', '${last}', '${phone}')"
+    style="background:#ff9800; color:white; border:none; border-radius:4px; padding:6px 12px; cursor:pointer; font-weight:bold;">
+    החלף
+    </button>
+    </div>
+    `;
+  });
+  html += `</div>`;
+  
+  if(text) text.innerHTML = html;
+  if(actions) actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">ביטול</button>`;
+  
+  if(modal) modal.style.display = 'flex';
+}
+
+// פונקציית ביניים: סוגרת רשימה -> פותחת תרגיל -> מבצעת החלפה
+function prepareSwapFromList(apptDataStr, first, last, phone) {
+  // 1. סגור את רשימת התורים
+  document.getElementById('checkResultModal').style.display = 'none';
+  
+  // 2. פענח את התור שנבחר
+  const oldAppt = JSON.parse(decodeURIComponent(apptDataStr));
+  
+  // 3. פתח את התרגיל
+  openMathVerifyModal(() => {
+    // 4. רק אחרי הצלחה בתרגיל - בצע את ההחלפה
+    performBooking(first, last, phone, selectedDate, selectedTime, oldAppt);
+  });
+}
+
+// --- 6. פונקציית ביצוע ההחלפה מהרשימה ---
+async function confirmSwapFromList(apptDataStr, first, last, phone) {
+  const oldAppt = JSON.parse(decodeURIComponent(apptDataStr));
+  document.getElementById('checkResultModal').style.display = 'none';
+  await performBooking(first, last, phone, selectedDate, selectedTime, oldAppt);
+}
+
+// --- 7. פונקציית ביצוע ההזמנה בפועל (שמירה ב-DB) ---
+async function performBooking(first, last, phone, newDate, newTime, oldApptToDelete) {
+  let data = JSON.parse(JSON.stringify(globalData));
+  
+  // מחיקת ישן אם קיים
+  if (oldApptToDelete) {
+    const oldDay = data[oldApptToDelete.date];
+    if (oldDay && oldDay.appointments) {
+      const idx = oldDay.appointments.findIndex(a =>
+      a.time === oldApptToDelete.time &&
+      normalizePhone(a.phone) === normalizePhone(phone) &&
+      a.status !== 'DELETED'
+      );
+      if (idx > -1) oldDay.appointments.splice(idx, 1);
+    }
+  }
+  
+  // יצירת חדש
+  if (!data[newDate]) data[newDate] = { appointments: [] };
+  if (!data[newDate].appointments) data[newDate].appointments = [];
+  
+  const newAppt = {
+    time: newTime,
+    first: first,
+    last: last,
+    phone: phone,
+    status: "BOOKED",
+    timestamp: Date.now()
+  };
+  
+  data[newDate].appointments.push(newAppt);
+  
+  await saveData(data);
+  
+  // מסך הצלחה
+  const s = data[newDate].settings || {};
+  const interval = parseInt(s.range1Interval) || 15;
+  
+  showSuccessModal(newDate, newTime, interval, first);
+  
+  if (oldApptToDelete) {
+    const successText = document.getElementById('successText');
+    if(successText) {
+      successText.innerHTML += `
+      <br><br>
+      <span style="font-size:0.9em; color:#ff9800; border-top:1px solid #444; padding-top:5px; display:block;">
+      התור הקודם (${oldApptToDelete.date} ב-${oldApptToDelete.time}) בוטל.
+      </span>`;
+    }
+  }
+}
+
+// --- 8. הצגת מסך סיום לפעולות כלליות (ביטול וכו') ---
+function showPostActionScreen(titleText, color, subText) {
+  document.getElementById('header-area').style.display = 'none';
+  document.getElementById('main-container').style.display = 'none';
+  
+  const title = document.getElementById('postTitle');
+  const sub = document.getElementById('postSubtitle');
+  const btn = document.getElementById('btnReturn');
+  
+  if(title) { title.innerText = titleText; title.style.color = color; }
+  if(sub) sub.innerText = subText;
+  if(btn) btn.innerHTML = "✏️ חזרה למערכת";
+  
+  const screen = document.getElementById('postBookingScreen');
+  if(screen) screen.style.display = 'flex';
+}
+// =========================================================================
+
+async function saveData(data) {
+  try { await db.ref('appointments').set(data); }
+  catch (e) { console.error("Error saving:", e); alert("שגיאה בשמירה לענן. בדוק את החיבור שלך."); }
+}
+
+function initRealtimeListener() {
+  const overlay = document.getElementById('loadingOverlay');
+  const status = document.getElementById('connectionStatus');
+  overlay.style.display = 'flex';
+  status.innerText = "מעדכן נתונים מהשרת...";
+  
+  if (!db) return;
+  
+  // האזנה לנתוני התורים
+  db.ref('appointments').on('value', (snapshot) => {
+    globalData = snapshot.val() || {};
+    buildCalendar();
+    
+    // --- לוגיקת פוקוס אוטומטי לתאריך הראשון הפנוי ---
+    const todayKey = dateToKey(new Date());
+    const sortedDates = Object.keys(globalData).sort();
+    
+    // מציאת התאריך הראשון שיש בו תורים זמינים מהיום והלאה
+    const firstAvailableDate = sortedDates.find(date => {
+      return date >= todayKey && getAvailableSlots(globalData[date]).length > 0;
+    });
+    
+    // אם נמצא תאריך כזה ועדיין לא נבחר תאריך ידנית - נבחר אותו
+    if (firstAvailableDate && !selectedDate) {
+      selectDate(firstAvailableDate);
+    }
+    // ----------------------------------------------
+    
+    if (selectedDate) renderAvailableSlots();
+    overlay.style.display = 'none';
+  }, (err) => {
+    console.error("Realtime error:", err);
+    status.innerText = "שגיאה בעדכון בזמן אמת.";
+  });
+  
+  // האזנה להגדרות הכותרת
+  db.ref('settings/calendarTitle').on('value', s => {
+    const val = s.val();
+    if(val) {
+      systemCalendarTitle = val;
+      const subtitleEl = document.getElementById('pageSubtitle');
+      if(subtitleEl) subtitleEl.innerText = val;
+    }
+  });
+}
+
+try { initRealtimeListener(); } catch (e) { console.warn(e); }
+setInterval(() => { if (selectedDate) { const now = new Date(); if (dateToKey(now) === selectedDate) renderAvailableSlots(); } }, 60000);
+// ==========================================
+// === טיימר אי-פעילות: סגירת הדף (חסימה) ===
+// ==========================================
+(function() {
+  let time;
+  // זמן: 5 דקות (300,000 מילישניות)
+  const timeoutDuration = 300000;
+  
+  function killSession() {
+    // פעולה זו מוחקת את כל התוכן של הדף ומציגה מסך שחור עם הודעה
+    document.body.innerHTML = `
+    <div style="
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #0f172a;
+    color: white;
+    font-family: sans-serif;
+    text-align: center;
+    direction: rtl;">
+    
+    <div style="font-size: 4em; margin-bottom: 20px;">🔒</div>
+    <h1 style="font-size: 2em; margin-bottom: 10px;">המערכת נסגרה עקב חוסר פעילות</h1>
+    <p style="font-size: 1.2em; color: #94a3b8;">כדי להזמין תור חדש, נא להיכנס מחדש דרך הקישור.</p>
+    </div>
+    `;
+  }
+  
+  function resetTimer() {
+    clearTimeout(time);
+    // אם לא תהיה פעילות במשך 5 דקות - הפונקציה killSession תופעל
+    time = setTimeout(killSession, timeoutDuration);
+  }
+  
+  // רשימת אירועים שמאפסים את הטיימר (כל עוד המשתמש פעיל)
+  window.onload = resetTimer;
+  document.onmousemove = resetTimer;
+  document.onkeypress = resetTimer;
+  document.ontouchstart = resetTimer; // למסכי מגע
+  document.onclick = resetTimer;
+  document.onscroll = resetTimer;
+})();
+
+</script>
+<div id="mathVerifyModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; display:none; justify-content:center; align-items:center; flex-direction:column;">
+
+<div style="background:#1e293b; border:1px solid #475569; padding:30px; border-radius:12px; width:90%; max-width:320px; text-align:center; box-shadow: 0 0 20px rgba(0,0,0,0.7); position:relative;">
+
+<span onclick="document.getElementById('mathVerifyModal').style.display='none'"
+style="position:absolute; top:10px; left:15px; cursor:pointer; font-size:24px; color:#94a3b8;">&times;</span>
+
+<div style="font-size:40px; margin-bottom:10px;">🛡️</div>
+<h3 style="color:#38bdf8; margin:0 0 10px 0;">בדיקת אבטחה</h3>
+<p style="color:#cbd5e1; margin-bottom:20px;">כמה זה?</p>
+
+<div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:20px; direction:ltr;">
+<span id="verifyMathQ" style="font-size:24px; font-weight:bold; color:white;"></span>
+<span style="font-size:24px; color:white;">=</span>
+<input type="number" id="verifyMathAns" style="width:80px; padding:8px; font-size:20px; text-align:center; border-radius:6px; border:1px solid #475569; background:#334155; color:white;" autocomplete="off">
+</div>
+
+<button onclick="submitMathVerify()" style="background:#22c55e; color:white; width:100%; padding:12px; font-size:16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">
+אשר והמשך
+</button>
+</div>
+</div>
+
+<script>
+// לוגיקה להתקנה
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
+window.installPWA = async function() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  } else {
+    alert("להתקנה ידנית:\nבאייפון: שתף > הוסף למסך הבית\nבאנדרואיד: תפריט > התקן אפליקציה");
+  }
+};
+
+// רישום ה-SW
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>
