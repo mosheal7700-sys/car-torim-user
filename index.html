@@ -625,6 +625,15 @@ input[type=number] {
 <label for="phone"> </label>
 <input type="tel" id="phone" placeholder="טלפון" required autocomplete="off">
 </div>
+<input
+  id="carNumber"
+  type="text"
+  inputmode="numeric"
+  placeholder="מספר רכב"
+  maxlength="8"
+  style="direction:ltr;"
+>
+
 <div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 10px;">
 
 <div style="display: flex; gap: 10px; width: 100%;">
@@ -746,9 +755,6 @@ const firebaseConfig = {
   messagingSenderId: "937970174514",
   appId: "1:937970174514:web:c4c2fe7c706220b07e0a2b"
 };
-
-// Initialize Firebase
-//const app = initializeApp(firebaseConfig);
 // ------------------- החלפה------------------
 
 let db;
@@ -1667,7 +1673,7 @@ style="position:absolute; top:10px; left:15px; cursor:pointer; font-size:24px; c
 
 <script>
 // לוגיקה להתקנה
-let deferredPrompt;
+//let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
