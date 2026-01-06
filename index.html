@@ -357,7 +357,7 @@ body.light-mode .day.selected-day {
 .input-group { margin-bottom: 10px; }
 .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 1em; }
 .input-group input {
-  width: 100%; padding: 10px; font-size: 1.1em; border-radius: 5px;
+  width: 100%; padding: 8px; font-size: 0.95em; border-radius: 5px;
   border: 1px solid var(--border-input); /* משתנה */
   background: var(--bg-input);           /* משתנה */
   color: var(--text-main);               /* משתנה */
@@ -625,14 +625,20 @@ input[type=number] {
 <label for="phone"> </label>
 <input type="tel" id="phone" placeholder="טלפון" required autocomplete="off">
 </div>
-<input
-  id="carNumber"
-  type="text"
-  inputmode="numeric"
-  placeholder="מספר רכב"
-  maxlength="8"
-  style="direction:ltr;"
->
+<div class="input-group">
+  <label for="carNumber"> </label>
+  <input
+    type="text"
+    id="carNumber"
+    placeholder="מספר רכב"
+    autocomplete="off"
+    inputmode="numeric"
+    maxlength="8"
+    style="direction:ltr;"
+  >
+</div>
+
+
 
 <div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 10px;">
 
