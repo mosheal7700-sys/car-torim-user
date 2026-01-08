@@ -1352,81 +1352,78 @@ async function bookAppointment(isSwap = false) {
   const rawFirst = document.getElementById("firstName").value.trim();
   const rawLast = document.getElementById("lastName").value.trim();
   const rawPhone = document.getElementById("phone").value.trim();
-  const rawCar = document.getElementById("carNumber").value.trim(); // <== השינוי: קריאה למספר רכב
+  const rawCar = document.getElementById("carNumber").value.trim();
+  
+  // === תוספת: שליפת סוג הטיפול ===
+  const treatmentSelect = document.getElementById('bookTreatmentType');
+  const treatmentVal = treatmentSelect ? treatmentSelect.value : '';
+  // ==============================
 
-  // ניקוי נתונים (שימוש בפונקציה קיימת אם ישנה)
   const first = (typeof sanitizeInput === 'function') ? sanitizeInput(rawFirst) : rawFirst;
   const last = (typeof sanitizeInput === 'function') ? sanitizeInput(rawLast) : rawLast;
   const phone = rawPhone.replace(/\D/g,''); 
-  const carNum = rawCar.replace(/\W/g, ''); // מנקה תווים מיוחדים ממספר הרכב
+  const carNum = rawCar.replace(/\W/g, ''); 
 
-  // --- ב. בדיקות תקינות בסיסיות ---
+  // --- ב. בדיקות תקינות ---
   if (!selectedDate || !selectedTime) {
     alert("נא לבחור תאריך ושעה.");
     return;
   }
   
-  // בדיקה שכל השדות מלאים - כולל רכב
+  // בדיקה שכל השדות מלאים
   if (!first || !last || !phone || !carNum) {
     alert("נא למלא את כל הפרטים (כולל מספר רכב).");
     return;
   }
 
-  // ולידציה לטלפון ולרכב
-  if (phone.length < 9) { // גמישות קלה בטלפון
+  // === תוספת: בדיקה שנבחר סוג טיפול ===
+  if (treatmentVal === "" || treatmentVal === null) {
+      alert("נא לבחור סוג טיפול מהרשימה.");
+      return;
+  }
+  // ====================================
+
+  if (phone.length < 9) { 
     alert("מספר טלפון אינו תקין.");
     return;
   }
-  if (carNum.length < 5) { // בדיקת אורך מינימלי לרכב
+  if (carNum.length < 5) { 
       alert("מספר רכב קצר מדי.");
       return;
   }
   
-  // --- ג. בדיקת תורים קיימים במערכת ---
-  // <== השינוי הגדול: שולפים לפי מספר רכב במקום לפי טלפון ==>
+  // --- ג. בדיקת תורים קיימים ---
   const allAppts = getAllFutureAppointments(carNum);
-  
-  // --- ד. ניתוב לפי סוג פעולה ---
   
   // מקרה 1: הזמנה רגילה
   if (!isSwap) {
-    // אם כבר יש תור לרכב הזה
     if (allAppts.length > 0) {
       const exist = allAppts[0];
-      alert(`קיים כבר תור לרכב ${carNum} בתאריך ${exist.date} בשעה ${exist.time}.\n\nלא ניתן להוסיף תור כפול.\nלהחלפה, לחץ על הכפתור הכתום: "החלף תור קיים".`);
-      
-      // אופציונלי: חשיפת כפתור ההחלפה כאן
+      alert(`קיים כבר תור לרכב ${carNum} בתאריך ${exist.date} בשעה ${exist.time}.\n\nלא ניתן להוסיף תור כפול.`);
       document.getElementById('swapBtn').disabled = false;
       document.getElementById('bookBtn').disabled = true;
       return; 
     }
     
-    // אם אין תורים -> פתח בדיקת אבטחה -> ואז בצע הזמנה
-    // שים לב: הוספנו את carNum לקריאה ל-performBooking
     openMathVerifyModal(() => {
       performBooking(first, last, phone, carNum, selectedDate, selectedTime);
     });
     return;
   }
   
-  // מקרה 2: החלפת תור (isSwap === true)
-  
+  // מקרה 2: החלפת תור
   if (allAppts.length === 0) {
     alert(`לא נמצאו תורים קיימים להחלפה עבור רכב ${carNum}.`);
     return;
   }
   
-  // אם יש תור אחד - החלפה ישירה
   if (allAppts.length === 1) {
     const oldAppt = allAppts[0];
     openMathVerifyModal(() => {
-      // גם כאן, מעבירים את carNum וגם את oldAppt למחיקה
       performBooking(first, last, phone, carNum, selectedDate, selectedTime, oldAppt);
     });
   }
-  // אם יש ריבוי תורים (נדיר ברכב, אבל אפשרי) - פתיחת רשימת בחירה
   else {
-    // צריך לוודא שפונקציית הבחירה תומכת בהצגת מספרי רכב, אבל לרוב זה יעבוד גם כך
     showSwapSelectionModal(allAppts, first, last, phone, carNum);
   }
 }
@@ -1505,16 +1502,16 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
   
   const data = globalData; 
   
-  // הודעה למשתמש (אופציונלי - כדי שיבין שיש המתנה קצרה)
-  // אם יש לך אלמנט לטעינה אפשר להפעיל אותו כאן
-
-  // --- 1. משיכת פרטי רכב (התוספת החדשה) ---
+  // --- 1. משיכת פרטי רכב ---
   let extraInfo = { model: '', year: '' };
   if (carNum && carNum.length >= 5) {
-      // ממתין לתשובה מהממשלה
       extraInfo = await fetchCarDetails(carNum); 
   }
-  // ----------------------------------------
+
+  // === תוספת קריטית: שליפת סוג הטיפול ברגע השמירה ===
+  const treatmentEl = document.getElementById('bookTreatmentType');
+  const treatmentToSave = treatmentEl ? treatmentEl.value : ''; 
+  // =================================================
 
   // --- 2. מחיקת תור ישן (במקרה של החלפה) ---
   if (oldAppt) {
@@ -1533,7 +1530,7 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
     }
   }
   
-  // --- 3. שמירת התור החדש עם הפרטים ---
+  // --- 3. שמירת התור החדש ---
   if (!data[date]) data[date] = { appointments: [] };
   if (!data[date].appointments) data[date].appointments = [];
   
@@ -1544,9 +1541,12 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
     phone: phone,
     carNumber: carNum,
     
-    // כאן אנחנו שומרים את המידע החדש:
     carModel: extraInfo.model, 
     carYear: extraInfo.year,
+
+    // === כאן נכנס השדה החדש למסד הנתונים ===
+    treatmentType: treatmentToSave, 
+    // ======================================
     
     status: "BOOKED",
     timestamp: Date.now()
@@ -1820,11 +1820,11 @@ function loadUserTreatments() {
     });
 }
 
-  // הפעלה אוטומטית כשהדף עולה
+// הפעלה אוטומטית כשהדף עולה
 document.addEventListener('DOMContentLoaded', function() {
     loadUserTreatments();
 });
+
 </script>
 </body>
 </html>
-
