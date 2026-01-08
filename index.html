@@ -640,9 +640,9 @@ input[type=number] {
 
 <div class="input-group">
     <label for="bookTreatmentType"> </label>
-    <select id="bookTreatmentType" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: white; color: inherit; font-size: 1em;">
-        <option value="" disabled selected>בחר סוג טיפול</option>
-        </select>
+    <select id="bookTreatmentType" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: transparent; color: inherit; font-size: 1em;">
+        <option value="" disabled selected style="background: var(--bg-color, #333);">בחר סוג טיפול</option>
+    </select>
 </div>
 
 
@@ -1787,3 +1787,4 @@ async function fetchCarDetails(carNumber) {
 </script>
 </body>
 </html>
+
