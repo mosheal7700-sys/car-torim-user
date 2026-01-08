@@ -1736,26 +1736,45 @@ window.installPWA = async function() {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
-// === פונקציית עזר: משיכת פרטי רכב (דגם ושנה) ===
+// === פונקציית עזר מתוקנת: משיכה ממאגר רכב פרטי ומסחרי (הקישור ששלחת) ===
 async function fetchCarDetails(carNumber) {
     if (!carNumber || carNumber.length < 5) return { model: '', year: '' };
+    
+    const cleanNum = carNumber.replace(/\D/g, ''); 
+
     try {
+        // זהו המזהה של המאגר ששלחת (רכבים פרטיים ומסחריים)
         const resourceId = '053cea08-09bc-40ec-8f7a-156f0677aff3'; 
-        const cleanNum = carNumber.replace(/\D/g, ''); 
         const url = `https://data.gov.il/api/3/action/datastore_search?resource_id=${resourceId}&q=${cleanNum}`;
+        
+        console.log("בודק במאגר פרטי/מסחרי עבור:", cleanNum); 
         
         const response = await fetch(url);
         const data = await response.json();
         
         if (data.success && data.result.records.length > 0) {
+            // חיפוש הרשומה המדויקת
             const car = data.result.records.find(r => String(r.mispar_rechev) === String(cleanNum));
+            
             if (car) {
-                return { model: car.tozeret_nm || '', year: car.shnat_yitzur || '' };
+                // tozeret_nm = שם יצרן (למשל: מאזדה)
+                // kinuy_mishari = כינוי מסחרי (למשל: 3)
+                // shnat_yitzur = שנת ייצור
+                
+                const modelName = (car.tozeret_nm || '') + ' ' + (car.kinuy_mishari || '');
+                console.log("נמצא רכב:", modelName, car.shnat_yitzur);
+
+                return { 
+                    model: modelName.trim(), 
+                    year: car.shnat_yitzur || '' 
+                };
             }
         }
+        console.log("הרכב לא נמצא במאגר זה.");
     } catch (e) {
-        console.error("שגיאה במשיכת נתונים:", e);
+        console.error("שגיאה בתקשורת עם data.gov.il:", e);
     }
+    
     return { model: '', year: '' };
 }
 </script>
