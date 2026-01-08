@@ -1784,8 +1784,42 @@ async function fetchCarDetails(carNumber) {
     
     return { model: '', year: '' };
 }
-  updateBookingDropdown(); 
+
+// פונקציה לטעינת סוגי הטיפולים למסך המשתמש
+function loadUserTreatments() {
+    const selectElement = document.getElementById('bookTreatmentType');
+    
+    // אם השדה לא קיים בדף, אין מה להמשיך
+    if (!selectElement) return;
+
+    // פנייה לפיירבייס לנתיב שבו שמרנו את ההגדרות
+    db.ref('systemSettings/treatments').once('value').then((snapshot) => {
+        const data = snapshot.val();
+        
+        // ניקוי הרשימה (משאיר רק את הכותרת "בחר סוג טיפול")
+        selectElement.innerHTML = '<option value="" disabled selected>בחר סוג טיפול</option>';
+
+        if (data) {
+            // המרה למערך (למקרה שפיירבייס החזיר אובייקט)
+            const treatmentsList = Array.isArray(data) ? data : Object.values(data);
+            
+            // יצירת האפשרויות ברשימה
+            treatmentsList.forEach(treatment => {
+                const option = document.createElement('option');
+                option.value = treatment;
+                option.innerText = treatment;
+                
+                // עיצוב בסיסי לאפשרויות (כדי שיהיו קריאות גם ברקע כהה)
+                option.style.color = "#000"; 
+                
+                selectElement.appendChild(option);
+            });
+        }
+    }).catch(error => {
+        console.error("שגיאה בטעינת טיפולים:", error);
+    });
+}
+
 </script>
 </body>
 </html>
-
