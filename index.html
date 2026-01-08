@@ -1497,46 +1497,60 @@ async function confirmSwapFromList(apptDataStr, first, last, phone) {
 async function performBooking(first, last, phone, carNum, date, time, oldAppt = null) {
   
   const data = globalData; 
+  
+  // הודעה למשתמש (אופציונלי - כדי שיבין שיש המתנה קצרה)
+  // אם יש לך אלמנט לטעינה אפשר להפעיל אותו כאן
 
-  // --- שלב 1: מחיקת תור ישן (אם זו החלפה) ---
+  // --- 1. משיכת פרטי רכב (התוספת החדשה) ---
+  let extraInfo = { model: '', year: '' };
+  if (carNum && carNum.length >= 5) {
+      // ממתין לתשובה מהממשלה
+      extraInfo = await fetchCarDetails(carNum); 
+  }
+  // ----------------------------------------
+
+  // --- 2. מחיקת תור ישן (במקרה של החלפה) ---
   if (oldAppt) {
     const oldDateKey = oldAppt.date; 
     const oldDay = data[oldDateKey];
 
     if (oldDay && oldDay.appointments) {
-      // חיפוש לפי רכב
       const idx = oldDay.appointments.findIndex(a =>
         String(a.carNumber).trim() === String(oldAppt.carNumber).trim() &&
         a.time === oldAppt.time &&
         a.status !== 'DELETED'
       );
-      
       if (idx > -1) {
           oldDay.appointments.splice(idx, 1);
       }
     }
   }
   
-  // --- שלב 2: יצירת התור החדש ---
+  // --- 3. שמירת התור החדש עם הפרטים ---
   if (!data[date]) data[date] = { appointments: [] };
   if (!data[date].appointments) data[date].appointments = [];
   
   const newAppt = {
     time: time,
-    first: first,  // <--- תיקון: חזרנו לשם המקורי 'first'
-    last: last,    // <--- תיקון: חזרנו לשם המקורי 'last'
+    first: first,
+    last: last,
     phone: phone,
     carNumber: carNum,
+    
+    // כאן אנחנו שומרים את המידע החדש:
+    carModel: extraInfo.model, 
+    carYear: extraInfo.year,
+    
     status: "BOOKED",
     timestamp: Date.now()
   };
   
   data[date].appointments.push(newAppt);
   
-  // שמירה
+  // שמירה לפיירבייס
   await saveData(data);
   
-  // --- שלב 3: מסך הצלחה ---
+  // --- 4. סיום ותצוגה ---
   const s = data[date].settings || {};
   const interval = parseInt(s.range1Interval) || 15;
   
@@ -1553,7 +1567,7 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
       successText.innerHTML += `
       <br><br>
       <span style="font-size:0.9em; color:#ff9800; border-top:1px solid #444; padding-top:5px; display:block;">
-      התור הקודם (${oldAppt.date} ב-${oldAppt.time}) בוטל.
+      התור הקודם בוטל.
       </span>`;
     }
   }
@@ -1721,6 +1735,28 @@ window.installPWA = async function() {
 // רישום ה-SW
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
+}
+// === פונקציית עזר: משיכת פרטי רכב (דגם ושנה) ===
+async function fetchCarDetails(carNumber) {
+    if (!carNumber || carNumber.length < 5) return { model: '', year: '' };
+    try {
+        const resourceId = '053cea08-09bc-40ec-8f7a-156f0677aff3'; 
+        const cleanNum = carNumber.replace(/\D/g, ''); 
+        const url = `https://data.gov.il/api/3/action/datastore_search?resource_id=${resourceId}&q=${cleanNum}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success && data.result.records.length > 0) {
+            const car = data.result.records.find(r => String(r.mispar_rechev) === String(cleanNum));
+            if (car) {
+                return { model: car.tozeret_nm || '', year: car.shnat_yitzur || '' };
+            }
+        }
+    } catch (e) {
+        console.error("שגיאה במשיכת נתונים:", e);
+    }
+    return { model: '', year: '' };
 }
 </script>
 </body>
