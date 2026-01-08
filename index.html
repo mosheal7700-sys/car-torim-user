@@ -1820,6 +1820,11 @@ function loadUserTreatments() {
     });
 }
 
+  // הפעלה אוטומטית כשהדף עולה
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserTreatments();
+});
 </script>
 </body>
 </html>
+
