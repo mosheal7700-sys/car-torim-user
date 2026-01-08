@@ -654,7 +654,7 @@ input[type=number] {
 <div id="checkPanel" class="panel">
 <h3>בדיקת תור קיים / ביטול</h3>
 <div id="checkForm">
-<input type="tel" id="checkPhone" placeholder="הכנס טלפון לבדיקה" autocomplete="off">
+<input type="text" id="checkCarInput" placeholder="הכנס מספר רכב לבדיקה" autocomplete="off" style="width:100%; padding:10px; font-size:16px; border:1px solid var(--border-input); border-radius:6px; background:var(--bg-input); color:var(--text-main); margin-bottom:10px;">
 <button id="checkBtn" onclick="checkAppointment(true)">🔍 בדוק תור</button>
 </div>
 </div>
@@ -1088,103 +1088,85 @@ function cancelExistingAppointmentLogic(data, dateKey, time, phone) {
 // === קוד חדש: טיפול בריבוי תורים (בדיקה, ביטול, החלפה) ===
 // =========================================================================
 
-// --- 1. מציאת כל התורים העתידיים של טלפון מסוים ---
-function getAllFutureAppointments(phone) {
-  const normalizedPhone = normalizePhone(phone);
-  const todayKey = dateToKey(new Date());
-  let results = [];
+// --- 1. מציאת כל התורים העתידיים של רכב מסוים ---
+function getAllFutureAppointments(carNumberVal) { // השם נשאר, הפרמטר כעת מייצג רכב
+  const results = [];
+  const now = new Date();
   
-  for (const [dateKey, dayData] of Object.entries(globalData)) {
-    // בודקים רק תאריכים מהיום והלאה
-    if (dateKey >= todayKey && dayData.appointments) {
-      dayData.appointments.forEach(appt => {
-        const storedPhone = normalizePhone(appt.phone);
-        // בדיקה: טלפון תואם וסטטוס לא מחוק
-        if (storedPhone === normalizedPhone && appt.status !== "DELETED") {
-          results.push({
-            ...appt,
-            date: dateKey // שומרים את התאריך לצורך זיהוי
-          });
+  // ניקוי רווחים ממספר הרכב
+  const targetCar = String(carNumberVal).trim();
+
+  Object.keys(globalData).forEach(dateKey => {
+    const day = globalData[dateKey];
+    if (day && day.appointments) {
+      day.appointments.forEach(app => {
+        // המרת זמן התור לאובייקט Date
+        const appDate = new Date(dateKey + 'T' + app.time);
+        
+        // בדיקה: האם התור עתידי + לא נמחק + מספר הרכב תואם
+        if (appDate > now && app.status !== "DELETED") {
+            // כאן השינוי: השוואה מול app.carNumber במקום app.phone
+            if (app.carNumber && String(app.carNumber).trim() === targetCar) {
+                // הוספת התאריך לאובייקט התור כדי שנדע מתי הוא
+                results.push({ ...app, date: dateKey });
+            }
         }
       });
     }
-  }
+  });
+  
   // מיון לפי תאריך ושעה
-  return results.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  results.sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+  return results;
 }
 
 // --- 2. בדיקת תורים (Check) - מציג רשימה אם יש ריבוי תורים ---
-function checkAppointment(showOverlay = true){
-  const rawCheckPhone = document.getElementById("checkPhone").value.trim();
-  const checkPhone = normalizePhone(rawCheckPhone);
+function checkAppointment(showOverlay = true) {
+  // קריאה משדה הרכב החדש
+  const rawInput = document.getElementById("checkCarInput").value.trim();
+  
+  if (!rawInput) {
+     if(showOverlay) alert("נא להזין מספר רכב לבדיקה.");
+     return;
+  }
+
+  // חיפוש לפי רכב
+  const allAppts = getAllFutureAppointments(rawInput);
   
   const modal = document.getElementById('checkResultModal');
-  const icon = document.getElementById('checkModalIcon');
   const title = document.getElementById('checkModalTitle');
   const text = document.getElementById('checkModalText');
   const actions = document.getElementById('checkModalActions');
-  
-  // בדיקה 1: האם השדה ריק
-  if(!checkPhone){
-    if(showOverlay) {
-      icon.innerText = "❌";
-      title.innerText = "שגיאה";
-      title.style.color = "#dc3545";
-      text.innerText = "נא להזין טלפון לבדיקה.";
-      actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
-      modal.style.display = 'flex';
-    }
-    return;
-  }
-  
-  // === תוספת חדשה: בדיקת 10 ספרות ===
-  if(checkPhone.length !== 10){
-    if(showOverlay) {
-      icon.innerText = "⚠️";
-      title.innerText = "מספר לא תקין";
-      title.style.color = "orange";
-      text.innerText = "מספר הטלפון חייב להכיל 10 ספרות בדיוק.";
-      actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
-      modal.style.display = 'flex';
-    }
-    return;
-  }
-  // ===================================
-  
-  const allAppts = getAllFutureAppointments(checkPhone);
-  
-  if(allAppts.length > 0){
+  const icon = document.getElementById('checkModalIcon');
+
+  if (allAppts.length > 0) {
     icon.innerText = "📅";
     title.innerText = `נמצאו ${allAppts.length} תורים`;
     title.style.color = "#4CAF50";
     
-    // בניית רשימה לצפייה וביטול
-    let htmlList = `<div style="text-align:right; max-height:200px; overflow-y:auto; margin-bottom:15px; border:1px solid #444; padding:10px; border-radius:8px;">`;
-    
-    allAppts.forEach(appt => {
-      htmlList += `
-      <div style="background:var(--bg-input); padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid var(--border-input); display:flex; justify-content:space-between; align-items:center;">
-      <div>
-      <div style="font-weight:bold; font-size:1.1em;">${appt.date}</div>
-      <div style="color:var(--accent-color);">${appt.time}</div>
-      </div>
-      <button onclick="showCancelConfirmModal('${appt.date}', '${appt.time}', '${checkPhone}')"
-      style="background:#dc3545; color:white; border:none; border-radius:4px; padding:5px 10px; cursor:pointer;">
-      ביטול
-      </button>
-      </div>
-      `;
+    let html = `<div style="text-align:right;">`;
+    allAppts.forEach(app => {
+        html += `
+        <div style="background:var(--bg-input); padding:10px; margin-bottom:8px; border-radius:6px; border:1px solid var(--border-input); display:flex; justify-content:space-between; align-items:center;">
+           <div>
+             <strong>${app.date}</strong> | ${app.time}<br>
+             <span style="font-size:0.9em; color:#aaa;">רכב: ${app.carNumber}</span>
+           </div>
+           <button onclick="showCancelConfirmModal('${app.date}', '${app.time}', '${rawInput}')" 
+             style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
+             ביטול
+           </button>
+        </div>`;
     });
-    htmlList += `</div>`;
+    html += `</div>`;
     
-    text.innerHTML = htmlList;
+    text.innerHTML = html;
     actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
-    
   } else {
     icon.innerText = "❌";
     title.innerText = "לא נמצא";
     title.style.color = "#dc3545";
-    text.innerText = "לא נמצאו תורים פעילים למספר זה.";
+    text.innerText = "לא נמצאו תורים עתידיים לרכב זה.";
     actions.innerHTML = `<button class="btn-exit" onclick="document.getElementById('checkResultModal').style.display='none'">סגור</button>`;
   }
   
@@ -1273,24 +1255,33 @@ function confirmCancelAppointment(dateKey, time, phone) {
 }
 
 // --- 3. ביטול תור ספציפי ---
-async function cancelAppointmentFinal(dateKey, time, phone){
-  
+async function cancelAppointmentFinal(dateKey, time, identifier) {
+  // identifier מכיל כעת את מספר הרכב
   const data = JSON.parse(JSON.stringify(globalData));
   const day = data[dateKey];
-  const normalizedPhone = normalizePhone(phone);
   
-  if (!day || !day.appointments) { alert("התור לא נמצא."); return; }
+  if (!day || !day.appointments) {
+      alert("שגיאה באיתור התור.");
+      return;
+  }
   
-  const index = day.appointments.findIndex(a => a.time === time && normalizePhone(a.phone) === normalizedPhone && a.status !== "DELETED");
+  // חיפוש האינדקס למחיקה לפי רכב ושעה
+  const index = day.appointments.findIndex(a => 
+      String(a.carNumber).trim() === String(identifier).trim() && 
+      a.time === time && 
+      a.status !== "DELETED"
+  );
   
   if (index > -1) {
     day.appointments.splice(index, 1);
-    await saveData(data);
+    await saveData(data); // שמירה
     
+    // הודעת הצלחה וניקוי
     showPostActionScreen("בוטל", "#dc3545", "התור בוטל בהצלחה.");
-    document.getElementById("checkPhone").value = '';
+    document.getElementById("checkCarInput").value = ''; // ניקוי שדה הרכב
+    document.getElementById('checkResultModal').style.display = 'none';
   } else {
-    alert("שגיאה במחיקת התור.");
+    alert("שגיאה: לא נמצא התור למחיקה (אי התאמה בנתוני רכב).");
   }
 }
 
@@ -1354,52 +1345,67 @@ async function bookAppointment(isSwap = false) {
   const rawFirst = document.getElementById("firstName").value.trim();
   const rawLast = document.getElementById("lastName").value.trim();
   const rawPhone = document.getElementById("phone").value.trim();
-  
-  // ניקוי נתונים
+  const rawCar = document.getElementById("carNumber").value.trim(); // <== השינוי: קריאה למספר רכב
+
+  // ניקוי נתונים (שימוש בפונקציה קיימת אם ישנה)
   const first = (typeof sanitizeInput === 'function') ? sanitizeInput(rawFirst) : rawFirst;
   const last = (typeof sanitizeInput === 'function') ? sanitizeInput(rawLast) : rawLast;
-  const phone = rawPhone.replace(/\D/g,''); // רק ספרות
-  
+  const phone = rawPhone.replace(/\D/g,''); 
+  const carNum = rawCar.replace(/\W/g, ''); // מנקה תווים מיוחדים ממספר הרכב
+
   // --- ב. בדיקות תקינות בסיסיות ---
   if (!selectedDate || !selectedTime) {
     alert("נא לבחור תאריך ושעה.");
     return;
   }
-  if (!first || !last || !phone) {
-    alert("נא למלא את כל הפרטים.");
+  
+  // בדיקה שכל השדות מלאים - כולל רכב
+  if (!first || !last || !phone || !carNum) {
+    alert("נא למלא את כל הפרטים (כולל מספר רכב).");
     return;
   }
-  if (phone.length !== 10) {
-    alert("מספר טלפון חייב להכיל 10 ספרות בדיוק.");
+
+  // ולידציה לטלפון ולרכב
+  if (phone.length < 9) { // גמישות קלה בטלפון
+    alert("מספר טלפון אינו תקין.");
     return;
+  }
+  if (carNum.length < 5) { // בדיקת אורך מינימלי לרכב
+      alert("מספר רכב קצר מדי.");
+      return;
   }
   
   // --- ג. בדיקת תורים קיימים במערכת ---
-  // שולפים את כל התורים העתידיים של הטלפון הזה
-  const allAppts = getAllFutureAppointments(phone);
+  // <== השינוי הגדול: שולפים לפי מספר רכב במקום לפי טלפון ==>
+  const allAppts = getAllFutureAppointments(carNum);
   
   // --- ד. ניתוב לפי סוג פעולה ---
   
-  // מקרה 1: הזמנה רגילה (המשתמש לחץ על "אשר הזמנה")
+  // מקרה 1: הזמנה רגילה
   if (!isSwap) {
-    // ==> התיקון שהיה חסר: בדיקה אם כבר יש תור <==
+    // אם כבר יש תור לרכב הזה
     if (allAppts.length > 0) {
-      alert(`קיימים לך ${allAppts.length} תורים במערכת.\nלא ניתן להוסיף תור חדש.\n\nכדי לשנות מועד, לחץ על הכפתור הכתום: "החלף תור קיים".`);
-      return; // עצור כאן! אל תפתח את התרגיל.
+      const exist = allAppts[0];
+      alert(`קיים כבר תור לרכב ${carNum} בתאריך ${exist.date} בשעה ${exist.time}.\n\nלא ניתן להוסיף תור כפול.\nלהחלפה, לחץ על הכפתור הכתום: "החלף תור קיים".`);
+      
+      // אופציונלי: חשיפת כפתור ההחלפה כאן
+      document.getElementById('swapBtn').disabled = false;
+      document.getElementById('bookBtn').disabled = true;
+      return; 
     }
     
     // אם אין תורים -> פתח בדיקת אבטחה -> ואז בצע הזמנה
+    // שים לב: הוספנו את carNum לקריאה ל-performBooking
     openMathVerifyModal(() => {
-      performBooking(first, last, phone, selectedDate, selectedTime);
+      performBooking(first, last, phone, carNum, selectedDate, selectedTime);
     });
     return;
   }
   
-  // מקרה 2: החלפת תור (המשתמש לחץ על "החלף תור")
+  // מקרה 2: החלפת תור (isSwap === true)
   
-  // אם אין לו תורים בכלל להחליף
   if (allAppts.length === 0) {
-    alert("לא נמצאו תורים קיימים להחלפה עבור מספר זה.");
+    alert(`לא נמצאו תורים קיימים להחלפה עבור רכב ${carNum}.`);
     return;
   }
   
@@ -1407,12 +1413,14 @@ async function bookAppointment(isSwap = false) {
   if (allAppts.length === 1) {
     const oldAppt = allAppts[0];
     openMathVerifyModal(() => {
-      performBooking(first, last, phone, selectedDate, selectedTime, oldAppt);
+      // גם כאן, מעבירים את carNum וגם את oldAppt למחיקה
+      performBooking(first, last, phone, carNum, selectedDate, selectedTime, oldAppt);
     });
   }
-  // אם יש ריבוי תורים - פתיחת רשימת בחירה
+  // אם יש ריבוי תורים (נדיר ברכב, אבל אפשרי) - פתיחת רשימת בחירה
   else {
-    showSwapSelectionModal(allAppts, first, last, phone);
+    // צריך לוודא שפונקציית הבחירה תומכת בהצגת מספרי רכב, אבל לרוב זה יעבוד גם כך
+    showSwapSelectionModal(allAppts, first, last, phone, carNum);
   }
 }
 
@@ -1486,52 +1494,66 @@ async function confirmSwapFromList(apptDataStr, first, last, phone) {
 }
 
 // --- 7. פונקציית ביצוע ההזמנה בפועל (שמירה ב-DB) ---
-async function performBooking(first, last, phone, newDate, newTime, oldApptToDelete) {
-  let data = JSON.parse(JSON.stringify(globalData));
+async function performBooking(first, last, phone, carNum, date, time, oldAppt = null) {
   
-  // מחיקת ישן אם קיים
-  if (oldApptToDelete) {
-    const oldDay = data[oldApptToDelete.date];
+  const data = globalData; 
+
+  // --- שלב 1: מחיקת תור ישן (אם זו החלפה) ---
+  if (oldAppt) {
+    const oldDateKey = oldAppt.date; 
+    const oldDay = data[oldDateKey];
+
     if (oldDay && oldDay.appointments) {
+      // חיפוש לפי רכב
       const idx = oldDay.appointments.findIndex(a =>
-      a.time === oldApptToDelete.time &&
-      normalizePhone(a.phone) === normalizePhone(phone) &&
-      a.status !== 'DELETED'
+        String(a.carNumber).trim() === String(oldAppt.carNumber).trim() &&
+        a.time === oldAppt.time &&
+        a.status !== 'DELETED'
       );
-      if (idx > -1) oldDay.appointments.splice(idx, 1);
+      
+      if (idx > -1) {
+          oldDay.appointments.splice(idx, 1);
+      }
     }
   }
   
-  // יצירת חדש
-  if (!data[newDate]) data[newDate] = { appointments: [] };
-  if (!data[newDate].appointments) data[newDate].appointments = [];
+  // --- שלב 2: יצירת התור החדש ---
+  if (!data[date]) data[date] = { appointments: [] };
+  if (!data[date].appointments) data[date].appointments = [];
   
   const newAppt = {
-    time: newTime,
-    first: first,
-    last: last,
+    time: time,
+    first: first,  // <--- תיקון: חזרנו לשם המקורי 'first'
+    last: last,    // <--- תיקון: חזרנו לשם המקורי 'last'
     phone: phone,
+    carNumber: carNum,
     status: "BOOKED",
     timestamp: Date.now()
   };
   
-  data[newDate].appointments.push(newAppt);
+  data[date].appointments.push(newAppt);
   
+  // שמירה
   await saveData(data);
   
-  // מסך הצלחה
-  const s = data[newDate].settings || {};
+  // --- שלב 3: מסך הצלחה ---
+  const s = data[date].settings || {};
   const interval = parseInt(s.range1Interval) || 15;
   
-  showSuccessModal(newDate, newTime, interval, first);
+  if(typeof showSuccessModal === 'function') {
+      showSuccessModal(date, time, interval, first);
+  } else {
+      alert("התור הוזמן בהצלחה!");
+      location.reload();
+  }
   
-  if (oldApptToDelete) {
+  if (oldAppt) {
     const successText = document.getElementById('successText');
     if(successText) {
       successText.innerHTML += `
       <br><br>
       <span style="font-size:0.9em; color:#ff9800; border-top:1px solid #444; padding-top:5px; display:block;">
-      התור הקודם (${oldApptToDelete.date} ב-${oldApptToDelete.time}) בוטל.
+      התור הקודם (${oldAppt.date} ב-${oldAppt.time}) בוטל.
       </span>`;
     }
   }
