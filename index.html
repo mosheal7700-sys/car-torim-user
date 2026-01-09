@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 
+
 <script>
 // --- הגדרה גלובלית: פונקציה למסך מלא ---
 window.toggleFullScreen = function() {
@@ -530,7 +531,85 @@ input[type=number] {
 </style>
 </head>
 <body>
+<!-- ***************************תנאי שימוש*************************-->
+<div id="termsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+    
+    <div style="background:white; width:90%; max-width:700px; border-radius:10px; padding:25px; text-align:center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position:relative;">
+        
+        <h2 style="margin-top:0; color:#333;">תנאי שימוש ומדיניות פרטיות 📜</h2>
+        
+        <div id="termsScrollBox" onscroll="checkScrollPosition()" 
+             style="height:200px; overflow-y:auto; background:#f9f9f9; color:#333333; border:1px solid #ddd; padding:15px; margin:20px 0; text-align:right; font-size:0.9em; line-height:1.6; border-radius:6px;">
+            
+            <p><b>ברוכים הבאים למערכת זימון התורים.</b></p>
+            <p>השימוש במערכת מותנה בהסכמתך לתנאים הבאים:</p>
+            <p style="color:red; font-size:0.8em;">(גלול למטה כדי לאשר)</p> <ol style="padding-right:20px;">
+                <li>התור הינו אישי ואינו ניתן להעברה לאדם אחר.</li>
+                <li>יש להגיע 5 דקות לפני הזמן שנקבע.</li>
+                <li>איחור של מעל 10 דקות יגרור ביטול אוטומטי של התור.</li>
+                <li>אי הגעה ללא ביטול מראש עשויה לגרור חסימה משימוש עתידי במערכת.</li>
+                <li>המערכת שומרת את מספר הטלפון ופרטי הרכב לצרכי תפעול וניהול התורים בלבד.</li>
+                <li>הנהלת המקום שומרת לעצמה את הזכות לשנות את שעות הפעילות.</li>
+                <li>הנך מאשר קבלת הודעות SMS הקשורות לתור שלך.</li>
+                <li>במקרה של תקלה טכנית, ייתכנו שינויים במועדי התורים.</li>
+                <li>אנא שמור על הניקיון ועל הסדר במקום.</li>
+                <li>השימוש במתקנים הוא על אחריות המשתמש בלבד.</li>
+            </ol>
+            <p><b>סוף התקנון.</b></p>
+        </div>
 
+<div style="margin-bottom:20px; text-align:right;">
+            <label id="termsLabel" style="cursor:not-allowed; display:flex; align-items:center; color:#000000;">
+                <input type="checkbox" id="acceptTermsCheckbox" disabled style="width:18px; height:18px; margin-left:10px;">
+                <span>קראתי, הבנתי ואישרתי את התנאים</span>
+            </label>
+        </div>
+
+        <button onclick="acceptTerms()" id="acceptBtn" disabled 
+                style="background:#ccc; color:white; border:none; padding:12px 30px; border-radius:6px; font-size:1.1em; cursor:not-allowed; width:100%;">
+            כניסה למערכת
+        </button>
+
+    </div>
+</div>
+
+<script>
+function checkScrollPosition() {
+    const box = document.getElementById('termsScrollBox');
+    const checkbox = document.getElementById('acceptTermsCheckbox');
+    const label = document.getElementById('termsLabel');
+
+    // בדיקה אם הגיע לסוף (פחות 5 פיקסלים רגישות)
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 5) {
+        
+        // שחרור הנעילה
+        checkbox.disabled = false;
+        
+        // שינוי הסמן כדי שהמשתמש יבין שאפשר ללחוץ
+        label.style.cursor = "pointer";
+    }
+}
+</script>
+// פונקציה שבודקת האם הגלילה הגיעה לסוף
+function checkScrollPosition() {
+    const box = document.getElementById('termsScrollBox');
+    const checkbox = document.getElementById('acceptTermsCheckbox');
+    const label = document.getElementById('termsLabel');
+
+    // חישוב: האם הגובה שנגלל + הגובה הנראה >= הגובה הכולל של הטקסט
+    // (הפחתנו 5 פיקסלים כדי שזה לא יהיה רגיש מדי על המילימטר)
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 5) {
+        
+        // משחרר את הנעילה
+        checkbox.disabled = false;
+        
+        // משנה את העיצוב כדי שיראה פעיל
+        label.style.opacity = "1";
+        label.style.cursor = "pointer";
+    }
+}
+</script>
+<!-- ***********************************תנאי שימוש*****************-->
 <div id="floating-controls">
 
 <button id="fullscreenBtn" class="float-btn" onclick="toggleFullScreen()" title="מסך מלא">
@@ -1822,8 +1901,49 @@ function loadUserTreatments() {
 
 // הפעלה אוטומטית כשהדף עולה
 document.addEventListener('DOMContentLoaded', function() {
+    checkTermsAcceptance();
     loadUserTreatments();
+
+    
+    // מאזין לשינוי בצ'קבוקס כדי להפעיל את הכפתור
+    const checkbox = document.getElementById('acceptTermsCheckbox');
+    const btn = document.getElementById('acceptBtn');
+    
+    if(checkbox && btn) {
+        checkbox.addEventListener('change', function() {
+            if(this.checked) {
+                btn.disabled = false;
+                btn.style.background = "#28a745"; // ירוק
+                btn.style.cursor = "pointer";
+            } else {
+                btn.disabled = true;
+                btn.style.background = "#ccc"; // אפור
+                btn.style.cursor = "not-allowed";
+            }
+        });
+    }
 });
+
+function checkTermsAcceptance() {
+    // בדיקה האם המשתמש כבר אישר בעבר
+    const hasAccepted = localStorage.getItem("termsAccepted_v1"); // ה-v1 מאפשר לך לאפס לכולם בעתיד אם תשנה ל-v2
+    
+    if (!hasAccepted) {
+        // אם לא אישר, מציגים את המודל
+        const modal = document.getElementById('termsModal');
+        if(modal) modal.style.display = 'flex';
+    }
+}
+
+function acceptTerms() {
+    // שמירה בזיכרון הדפדפן שהמשתמש אישר
+    localStorage.setItem("termsAccepted_v1", "true");
+    
+    // סגירת המודל
+    document.getElementById('termsModal').style.display = 'none';
+}
+
+
 
 </script>
 </body>
