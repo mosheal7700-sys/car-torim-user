@@ -956,27 +956,63 @@ function showSuccessModal(date, time, interval, name) {
 }
 
 function closeSuccessModal() {
-  document.getElementById('successModal').style.display = 'none';
+  // 1. סגירת המודל (בצורה בטוחה)
+  const modal = document.getElementById('successModal');
+  if (modal) modal.style.display = 'none';
   
-  document.getElementById('header-area').style.display = 'none';
-  document.getElementById('main-container').style.display = 'none';
+  // 2. הסתרת המסכים הראשיים
+  const header = document.getElementById('header-area');
+  const mainContainer = document.getElementById('main-container');
   
+  if (header) header.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  
+  // 3. עדכון מסך ה"תודה" (Post Booking)
   const title = document.getElementById('postTitle');
   const sub = document.getElementById('postSubtitle');
   const btn = document.getElementById('btnReturn');
+  const postScreen = document.getElementById('postBookingScreen');
   
-  title.innerText = "תודה!";
-  title.style.color = "#4CAF50";
+  if (title) {
+      title.innerText = "תודה!";
+      title.style.color = "#4CAF50";
+  }
   
-  sub.innerText = "התור שלך נשמר במערכת.";
+  if (sub) {
+      sub.innerText = "התור שלך נשמר במערכת.";
+  }
   
-  btn.innerHTML = `✏️ חזרה למערכת<br><span style="font-size:0.7em; font-weight:normal;">(לשינוי מועד תור / ביטול)</span>`;
+  if (btn) {
+      btn.innerHTML = `✏️ חזרה למערכת<br><span style="font-size:0.7em; font-weight:normal;">(לשינוי מועד תור / ביטול)</span>`;
+  }
   
-  document.getElementById('postBookingScreen').style.display = 'flex';
+  if (postScreen) {
+      postScreen.style.display = 'flex';
+  }
   
+  // 4. איפוס משתנים גלובליים
   selectedTime = null;
-  updateBookingState();
-  document.getElementById("checkPhone").value = '';
+  if (typeof updateBookingState === 'function') {
+      updateBookingState();
+  }
+
+  // 5. התיקון הגדול: ניקוי שדות בצורה בטוחה (מונע את השגיאה Cannot set properties of null)
+  // ריכזתי כאן את כל השדות שצריך לנקות, כולל checkPhone שהיה במקור
+  const fieldsToClear = [
+      'checkPhone', 
+      'clientName', 
+      'clientPhone', 
+      'carNumber', 
+      'carTypeSelect', 
+      'notesInput'
+  ];
+
+  fieldsToClear.forEach(fieldId => {
+      const el = document.getElementById(fieldId);
+      if (el) {
+          el.value = ''; // מנקה רק אם השדה באמת קיים בדף
+      }
+  });
 }
 
 function returnToBooking() {
