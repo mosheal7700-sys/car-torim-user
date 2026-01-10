@@ -528,6 +528,130 @@ input[type=number] {
     max-width: 1000px;
   }
 }
+
+/* --- 1. מסך כהה (Overlay) שחוסם את הרקע --- */
+.modal-overlay {
+    position: fixed; /* נשאר קבוע גם כשגוללים */
+    top: 0;
+    left: 0;
+    width: 100vw; /* רוחב מלא של המסך */
+    height: 100vh; /* גובה מלא של המסך */
+    background-color: rgba(0, 0, 0, 0.85); /* רקע שחור חצי שקוף */
+    z-index: 10000; /* מוודא שזה מעל הכל */
+    
+    /* מירכוז החלונית באמצע המסך */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* --- 2. עיצוב החלונית עצמה --- */
+.modal-content {
+    background-color: #1a2639;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    
+    /* תיקון קריטי לרוחב בטלפון: */
+    width: 90%; 
+    max-width: 450px;
+    box-sizing: border-box; /* זה השורה שתפתור את החיתוך! */
+    margin: 0 auto; /* מרכוז נוסף לבטיחות */
+    
+    text-align: center;
+    color: white;
+    position: relative;
+    border: 1px solid #34495e;
+}
+
+/* התאמה מיוחדת למסכים קטנים (טלפונים) */
+@media (max-width: 600px) {
+    .modal-content {
+        width: 95%;      /* מנצל יותר רוחב מסך בטלפון */
+        padding: 20px;   /* מקטין רווחים פנימיים כדי לחסוך מקום */
+    }
+    
+    .name-row {
+        gap: 5px; /* מקרב קצת את השמות כדי שייכנסו טוב */
+    }
+}
+
+/* --- 3. עיצוב הטקסט (כותרות והסבר) --- */
+.modal-content h3 {
+    margin-top: 0;
+    font-size: 24px;
+    color: #ffffff;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.modal-description {
+    font-size: 14px;
+    color: #cfd8dc; /* אפור בהיר */
+    line-height: 1.5;
+    margin-bottom: 25px;
+    direction: rtl;
+}
+
+/* --- 4. כפתור סגירה (X) --- */
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    cursor: pointer;
+    color: #aaa;
+}
+.close-btn:hover { color: white; }
+
+/* --- 5. עיצוב הטופס (כמו מקודם עם שיפורים קלים) --- */
+.privacy-form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.name-row {
+    display: flex;
+    gap: 10px;
+    direction: rtl; 
+}
+
+/* עיצוב שדות הקלט */
+.modal-content input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    direction: rtl;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+/* כפתור המחיקה */
+.delete-btn {
+    background-color: #f44336; /* אדום */
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.3s;
+}
+
+.delete-btn:hover {
+    background-color: #d32f2f;
+}
+
+#privacyMsg {
+    margin-top: 10px;
+    font-weight: bold;
+    min-height: 20px;
+}
 </style>
 </head>
 <body>
@@ -605,6 +729,40 @@ function checkScrollPosition() {
 <span class="btn-icon">☀️</span>
 <span class="btn-text">יום</span>
 </button>
+
+<div class="header-controls">
+    <button onclick="openPrivacyModal()" title="מחיקת היסטוריה אישית" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">
+        🛡️
+    </button>
+</div>
+
+
+<div id="privacyModal" class="modal-overlay" style="display:none;">
+    
+    <div class="modal-content">
+        
+        <span class="close-btn" onclick="closePrivacyModal()">&times;</span>
+
+        <h3>הסרת פרטים אישיים</h3>
+        <p class="modal-description">
+            הזן פרטים לזיהוי (בדיוק כפי שהוזנו בהזמנה).<br>
+            המערכת תמחק את שמך, הטלפון ומספר הרכב מההיסטוריה, אך תשמור מידע כללי על סוג הרכב והטיפול לצרכים סטטיסטיים.
+        </p>
+
+<div class="privacy-form-container">
+    <div class="name-row">
+        <input type="text" id="privacyFirstName" placeholder="שם פרטי" required autocomplete="off">
+        <input type="text" id="privacyLastName" placeholder="שם משפחה" required autocomplete="off">
+    </div>
+
+    <input type="text" id="privacyPhone" placeholder="מספר טלפון מלא" required autocomplete="off">
+    <input type="text" id="privacyCar" placeholder="מספר רכב" required autocomplete="off">
+
+    <button onclick="performAnonymization()" class="delete-btn">בצע מחיקה וניקוי</button>
+    <div id="privacyMsg"></div>
+</div>
+    </div>
+</div>
 
 <!-- ******************כפתור התקנה***************
 <button id="installUserBtn" class="float-btn" onclick="installPWA()" title="התקן אפליקציה">
@@ -1960,6 +2118,142 @@ function acceptTerms() {
         modal.style.display = 'none';
         // --- שורה חדשה: משחררת את גלילת הרקע ---
         document.body.style.overflow = 'auto'; 
+    }
+}
+
+// פתיחת המודל ואיפוס שדות
+// פתיחת המודל ואיפוס שדות
+function openPrivacyModal() {
+    document.getElementById('privacyModal').style.display = 'block';
+    document.getElementById('privacyMsg').innerText = '';
+    document.getElementById('privacyFirstName').value = '';
+    document.getElementById('privacyLastName').value = '';
+    document.getElementById('privacyPhone').value = '';
+    document.getElementById('privacyCar').value = '';
+}
+
+// סגירת המודל
+function closePrivacyModal() {
+    document.getElementById('privacyModal').style.display = 'none';
+}
+
+// ביצוע המחיקה
+function performAnonymization() {
+    // 1. פונקציות עזר לניקוי נתונים
+    const clean = (val) => String(val || '').replace(/[- ]/g, '').trim();
+    const normalize = (val) => String(val || '').trim();
+
+    // 2. קליטת נתונים מהטופס
+    const inputFirst = normalize(document.getElementById('privacyFirstName').value);
+    const inputLast = normalize(document.getElementById('privacyLastName').value);
+    const inputPhone = clean(document.getElementById('privacyPhone').value);
+    const inputCar = clean(document.getElementById('privacyCar').value);
+    const msgLabel = document.getElementById('privacyMsg');
+
+    // בדיקת חובה לכל השדות
+    if (!inputFirst || !inputLast || !inputPhone || !inputCar) {
+        msgLabel.innerText = "חובה למלא את כל השדות לזיהוי מלא.";
+        msgLabel.style.color = "red";
+        return;
+    }
+
+    msgLabel.innerText = "מבצע בדיקה ומחיקה...";
+    msgLabel.style.color = "blue";
+
+    // חישוב התאריך של היום (להגנה על תורים עתידיים)
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // עבודה מהשורש למניעת כפילויות בנתיב
+    const rootRef = firebase.database().ref(); 
+
+    rootRef.child('appointments').once('value').then((snapshot) => {
+        if (!snapshot.exists()) {
+            msgLabel.innerText = "המאגר ריק.";
+            return;
+        }
+
+        const updates = {};
+        let count = 0;
+
+        // פונקציה פנימית לבדיקה ומחיקה
+        const scanAndMark = (data, fullPath) => {
+            if (!data || !data.carNumber) return;
+
+            const dbCar = clean(data.carNumber);
+            
+            // זיהוי לפי רכב
+            if (dbCar === inputCar) {
+                const dbPhone = clean(data.phone); 
+                const dbFirst = normalize(data.first);
+                const dbLast = normalize(data.last);
+
+                // אימות מלא של כל הפרטים
+                if (dbPhone === inputPhone && dbFirst === inputFirst && dbLast === inputLast) {
+                    count++;
+                    
+                    // הכנת המחיקה - דריסה של השדות הפרטיים
+                    updates[`${fullPath}/first`] = "הוסר";
+                    updates[`${fullPath}/last`] = "לבקשת משתמש";
+                    updates[`${fullPath}/clientName`] = "הוסר לבקשת משתמש";
+                    updates[`${fullPath}/phone`] = "000000000";
+                    updates[`${fullPath}/clientPhone`] = "000000000";
+                    updates[`${fullPath}/carNumber`] = "0000000";
+                    updates[`${fullPath}/notes`] = "";
+                }
+            }
+        };
+
+        // לולאה ראשית
+        snapshot.forEach((dateSnapshot) => {
+            const dateKey = dateSnapshot.key;
+
+            // הגנה: אם התאריך הוא היום או בעתיד - מדלגים
+            if (dateKey >= todayStr) return;
+
+            // סריקת התורים בתאריכי העבר
+            dateSnapshot.forEach((childSnapshot) => {
+                const childKey = childSnapshot.key;
+                const childData = childSnapshot.val();
+
+                // תמיכה במבנה המקונן (אם קיים)
+                if (childKey === 'appointments' && typeof childData === 'object') {
+                    Object.keys(childData).forEach((indexKey) => {
+                        const actualData = childData[indexKey];
+                        const absolutePath = `appointments/${dateKey}/appointments/${indexKey}`;
+                        scanAndMark(actualData, absolutePath);
+                    });
+                } else {
+                    // תמיכה במבנה שטוח (גיבוי)
+                    scanAndMark(childData, `appointments/${dateKey}/${childKey}`);
+                }
+            });
+        });
+
+        // ביצוע העדכון
+        if (count > 0) {
+            rootRef.update(updates)
+                .then(() => {
+                    msgLabel.innerText = `בוצע בהצלחה! פרטים אישיים נמחקו מ-${count} תורים ישנים.`;
+                    msgLabel.style.color = "green";
+                    setTimeout(closePrivacyModal, 3000);
+                })
+                .catch((error) => {
+                    console.error("Error updating:", error);
+                    msgLabel.innerText = "שגיאה בביצוע הפעולה.";
+                });
+        } else {
+            msgLabel.innerText = "לא נמצאו תורים בהיסטוריה התואמים את כל הפרטים.";
+            msgLabel.style.color = "red";
+        }
+    });
+}
+
+// סגירת המודל בלחיצה מחוץ לחלון (אופציונלי אך מומלץ)
+window.onclick = function(event) {
+    const modal = document.getElementById('privacyModal');
+    if (event.target == modal) {
+        closePrivacyModal();
     }
 }
 
