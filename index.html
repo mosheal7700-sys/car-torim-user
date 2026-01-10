@@ -1756,10 +1756,9 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
       extraInfo = await fetchCarDetails(carNum); 
   }
 
-  // === תוספת קריטית: שליפת סוג הטיפול ברגע השמירה ===
+  // שליפת סוג הטיפול
   const treatmentEl = document.getElementById('bookTreatmentType');
   const treatmentToSave = treatmentEl ? treatmentEl.value : ''; 
-  // =================================================
 
   // --- 2. מחיקת תור ישן (במקרה של החלפה) ---
   if (oldAppt) {
@@ -1780,6 +1779,13 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
   
   // --- 3. שמירת התור החדש ---
   if (!data[date]) data[date] = { appointments: [] };
+  
+  // ============================================================
+  // === כאן נכנס העוגן! (The Anchor) ===
+  // אנו קובעים שתאריך זה קיים ומאובטח, ללא קשר לכמות התורים בו
+  data[date]._isOpen = true; 
+  // ============================================================
+
   if (!data[date].appointments) data[date].appointments = [];
   
   const newAppt = {
@@ -1788,14 +1794,9 @@ async function performBooking(first, last, phone, carNum, date, time, oldAppt = 
     last: last,
     phone: phone,
     carNumber: carNum,
-    
     carModel: extraInfo.model, 
     carYear: extraInfo.year,
-
-    // === כאן נכנס השדה החדש למסד הנתונים ===
     treatmentType: treatmentToSave, 
-    // ======================================
-    
     status: "BOOKED",
     timestamp: Date.now()
   };
