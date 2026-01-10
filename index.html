@@ -956,22 +956,21 @@ function showSuccessModal(date, time, interval, name) {
 }
 
 function closeSuccessModal() {
-  // 1. סגירת המודל (בצורה בטוחה)
+  // 1. סגירת המודל - עם בדיקת בטיחות
   const modal = document.getElementById('successModal');
   if (modal) modal.style.display = 'none';
   
   // 2. הסתרת המסכים הראשיים
   const header = document.getElementById('header-area');
-  const mainContainer = document.getElementById('main-container');
-  
   if (header) header.style.display = 'none';
+
+  const mainContainer = document.getElementById('main-container');
   if (mainContainer) mainContainer.style.display = 'none';
   
-  // 3. עדכון מסך ה"תודה" (Post Booking)
+  // 3. עדכון הטקסטים במסך ה"תודה"
   const title = document.getElementById('postTitle');
   const sub = document.getElementById('postSubtitle');
   const btn = document.getElementById('btnReturn');
-  const postScreen = document.getElementById('postBookingScreen');
   
   if (title) {
       title.innerText = "תודה!";
@@ -986,31 +985,24 @@ function closeSuccessModal() {
       btn.innerHTML = `✏️ חזרה למערכת<br><span style="font-size:0.7em; font-weight:normal;">(לשינוי מועד תור / ביטול)</span>`;
   }
   
-  if (postScreen) {
-      postScreen.style.display = 'flex';
-  }
+  // 4. הצגת מסך ה"תודה"
+  const postScreen = document.getElementById('postBookingScreen');
+  if (postScreen) postScreen.style.display = 'flex';
   
-  // 4. איפוס משתנים גלובליים
+  // 5. איפוס לוגיקה
   selectedTime = null;
   if (typeof updateBookingState === 'function') {
       updateBookingState();
   }
 
-  // 5. התיקון הגדול: ניקוי שדות בצורה בטוחה (מונע את השגיאה Cannot set properties of null)
-  // ריכזתי כאן את כל השדות שצריך לנקות, כולל checkPhone שהיה במקור
-  const fieldsToClear = [
-      'checkPhone', 
-      'clientName', 
-      'clientPhone', 
-      'carNumber', 
-      'carTypeSelect', 
-      'notesInput'
-  ];
-
-  fieldsToClear.forEach(fieldId => {
-      const el = document.getElementById(fieldId);
+  // 6. התיקון: ניקוי שדות בטוח (מונע את הקריסה)
+  // רשימה של כל השדות שאולי נרצה לנקות. המערכת תנקה רק מה שהיא מוצאת.
+  const fieldsToClear = ['checkPhone', 'clientName', 'clientPhone', 'carNumber', 'notesInput'];
+  
+  fieldsToClear.forEach(id => {
+      const el = document.getElementById(id);
       if (el) {
-          el.value = ''; // מנקה רק אם השדה באמת קיים בדף
+          el.value = ''; // מנקה רק אם השדה קיים!
       }
   });
 }
